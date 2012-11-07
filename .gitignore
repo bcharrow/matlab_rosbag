@@ -1,0 +1,15 @@
+.DS_Store
+*~
+*.pyc
+*.d
+*.o
+*.so
+*.mexa64
+ROS_NOBUILD
+
+build
+bin
+lib
+
+msg_gen
+srv_gen

@@ -1,0 +1,14 @@
+<package>
+  <description brief="matlab_bag">
+
+     matlab_bag
+
+  </description>
+  <author>bcharrow</author>
+  <license>BSD</license>
+  <review status="unreviewed" notes=""/>
+  <url>http://ros.org/wiki/matlab_bag</url>
+  <depend package="topic_tools"/>
+  <depend package="rosbag"/>
+
+</package>
