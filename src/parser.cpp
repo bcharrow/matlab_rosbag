@@ -268,3 +268,58 @@ int ROSMessage::populate(const ROSTypeMap &types, const uint8_t *bytes, int *beg
   }
   return 0;
 }
+
+
+BagDeserializer::~BagDeserializer() {
+  for (map<string, ROSTypeMap*>::iterator it = type_maps_.begin();
+       it != type_maps_.end();
+       ++it) {
+    delete (*it).second;
+  }
+}
+
+const ROSTypeMap* BagDeserializer::getTypeMap(const rosbag::MessageInstance &m) {
+  if (type_maps_.count(m.getDataType()) == 0) {
+    ROSTypeMap *rtm = new ROSTypeMap();
+    rtm->populate(m.getMessageDefinition());
+    type_maps_[m.getDataType()] = rtm;
+  }
+
+  return type_maps_[m.getDataType()];
+}
+
+int BagDeserializer::populateMsg(const ROSTypeMap &type_map,
+                                 const rosbag::MessageInstance &m,
+                                 ROSMessage *rm) {
+  bytes_.reset(new uint8_t[m.size()]);
+  ros::serialization::IStream stream(bytes_.get(), m.size());
+  m.write(stream);
+
+  int err = 0;
+  int beg = 0;
+  if ((err = rm->populate(type_map, bytes_.get(), &beg)) != 0) {
+    return err;
+  } else if (beg != static_cast<int>(m.size())) {
+    return -1;
+  } else {
+    return 0;
+  }
+}
+
+ROSMessage* BagDeserializer::CreateMessage(const rosbag::MessageInstance &m) {
+  const ROSTypeMap *rtm = getTypeMap(m);
+
+  const ROSMessageFields *rmf = rtm->getMsgFields("0-root");
+  if (rmf == NULL) { // Shouldn't happen
+    return NULL;
+  }
+
+  ROSMessage *msg = new ROSMessage(rmf->type());
+
+  if (populateMsg(*rtm, m, msg) != 0) {
+    delete msg;
+    return NULL;
+  }
+
+  return msg;
+}

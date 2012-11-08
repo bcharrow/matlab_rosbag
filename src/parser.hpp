@@ -8,6 +8,7 @@
 #include <boost/scoped_array.hpp>
 
 #include <ros/ros.h>
+#include <rosbag/bag.h>
 
 struct ROSType {
   ROSType() {}
@@ -91,6 +92,24 @@ private:
   std::vector<std::vector<uint8_t> > bytes_;
   int size_;
   const ROSType type_;
+};
+
+// Convenience class to create a ROSMessage from a rosbag::MessageInstance
+class BagDeserializer {
+public:
+  BagDeserializer() : bytes_(NULL) {}
+  ~BagDeserializer();
+
+  ROSMessage* CreateMessage(const rosbag::MessageInstance &m);
+
+private:
+  const ROSTypeMap* getTypeMap(const rosbag::MessageInstance &m);
+  int populateMsg(const ROSTypeMap &type_map,
+                  const rosbag::MessageInstance &m,
+                  ROSMessage *rm);
+
+  std::map<std::string, ROSTypeMap*> type_maps_;
+  boost::scoped_array<uint8_t> bytes_;
 };
 
 #endif

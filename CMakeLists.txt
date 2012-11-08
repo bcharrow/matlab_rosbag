@@ -22,9 +22,9 @@ set(LIBRARY_OUTPUT_PATH ${PROJECT_SOURCE_DIR}/lib)
 #rosbuild_gensrv()
 
 #common commands for building c++ executables and libraries
+rosbuild_add_executable(read_bag_test src/read_bag_test.cpp)
 rosbuild_add_library(matlabbag src/parser.cpp)
-#target_link_libraries(${PROJECT_NAME} another_library)
-#rosbuild_add_boost_directories()
+target_link_libraries(read_bag_test matlabbag)
 rosbuild_link_boost(matlabbag regex)
 
 rosbuild_add_gtest(parser_test src/parser_test.cpp)
