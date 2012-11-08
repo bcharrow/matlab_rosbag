@@ -45,11 +45,6 @@ void ROSType::populate(const string &type_str) {
     ROS_BREAK();
   }
 
-  is_builtin = builtins_.count(type_field) != 0;
-  if (is_builtin) {
-    type_size = builtins_[type_field];
-  }
-
   static const boost::regex array_re("(.+)(\\[([0-9]*)\\])");
   boost::smatch what;
   if (boost::regex_search(type_field, what, array_re)) {
@@ -70,6 +65,11 @@ void ROSType::populate(const string &type_str) {
     msg_name = type_field;
     array_type = "";
     array_size = 1;
+  }
+
+  is_builtin = builtins_.count(msg_name) != 0;
+  if (is_builtin) {
+    type_size = builtins_[msg_name];
   }
 
   if (is_builtin) {

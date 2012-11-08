@@ -36,6 +36,23 @@ TEST(ROSType, unqualified_array) {
   EXPECT_EQ(40, f.array_size);
 }
 
+TEST(ROSType, builtin_fixedlen_array) {
+  ROSType f;
+  f.populate("float64[32]");
+
+  EXPECT_EQ(string("float64[32]"), f.name);
+  EXPECT_EQ(string("float64"), f.base_type);
+  EXPECT_EQ(string("float64"), f.msg_name);
+  EXPECT_EQ(string(""), f.pkg_name);
+  EXPECT_EQ(string("[32]"), f.array_type);
+  EXPECT_TRUE(f.is_array);
+  EXPECT_TRUE(f.is_qualified);
+  EXPECT_TRUE(f.is_array);
+  EXPECT_EQ(32, f.array_size);
+  EXPECT_EQ(8, f.type_size);
+}
+
+
 TEST(ROSType, qualified_array) {
   ROSType f;
   f.populate("geometry_msgs/Pose[]");
