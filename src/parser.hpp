@@ -86,7 +86,7 @@ public:
   const_iterator begin() const { return fields_.begin(); }
   const_iterator end() const { return fields_.end(); }
 
-  int populate(const ROSTypeMap &types, const uint8_t *bytes, int *beg);
+  void populate(const ROSTypeMap &types, const uint8_t *bytes, int *beg);
 private:
   mutable std::map<std::string, std::vector<ROSMessage*> > fields_;
   std::vector<std::vector<uint8_t> > bytes_;
@@ -104,9 +104,9 @@ public:
 
 private:
   const ROSTypeMap* getTypeMap(const rosbag::MessageInstance &m);
-  int populateMsg(const ROSTypeMap &type_map,
-                  const rosbag::MessageInstance &m,
-                  ROSMessage *rm);
+  void populateMsg(const ROSTypeMap &type_map,
+                   const rosbag::MessageInstance &m,
+                   ROSMessage *rm);
 
   std::map<std::string, ROSTypeMap*> type_maps_;
   boost::scoped_array<uint8_t> bytes_;

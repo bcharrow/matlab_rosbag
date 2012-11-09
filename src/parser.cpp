@@ -41,8 +41,7 @@ void ROSType::populate(const string &type_str) {
     pkg_name = fields[0];
     type_field = fields[1];
   } else {
-    ROS_ERROR("Bad type string: %s", type_str.c_str());
-    ROS_BREAK();
+    throw invalid_argument("Bad type string: " + type_str);
   }
 
   static const boost::regex array_re("(.+)(\\[([0-9]*)\\])");
@@ -57,8 +56,7 @@ void ROSType::populate(const string &type_str) {
       string size(what[3].first, what[3].second);
       array_size = size.empty() ? -1 : atoi(size.c_str());
     } else {
-      ROS_ERROR("Unexpected size for regexp match");
-      ROS_BREAK();
+      throw invalid_argument("Bad type string: " + type_str);
     }
   } else {
     is_array = false;
@@ -118,8 +116,7 @@ void ROSMessageFields::populate(const string &msg_def) {
     vector<string> elements;
     boost::split_regex(elements, lines[l], whitespace_re);
     if (elements.size() != 2) {
-      ROS_ERROR("Bad line: %s", lines[l].c_str());
-      ROS_BREAK();
+      throw invalid_argument("Bad line in message def: %s" + lines[l]);
     }
     fields_.push_back(Field(elements[1]));
     fields_.back().type.populate(elements[0]);
@@ -152,13 +149,21 @@ void ROSTypeMap::populate(const string &msg_def) {
   std::vector<ROSMessageFields*> types(split.size());
   for (size_t i = 0; i < split.size(); ++i) {
     ROSMessageFields *rmt = new ROSMessageFields();
-    rmt->populate(split[i]);
-    if (!rmt->type().is_qualified) {
-      ROS_ERROR("Message definition has unqualified type name");
-    } else {
-      type_map_[rmt->type().name] = rmt;
-      resolver_[rmt->type().msg_name].push_back(rmt->type().pkg_name);
+
+    try {
+      rmt->populate(split[i]);
+    } catch (exception &e) {
+      delete rmt;
+      throw;
     }
+
+    if (!rmt->type().is_qualified) {
+      throw invalid_argument("Couldn't determine type in message:\n" +
+                             split[i] + "\nFull message def is:\n" + msg_def);
+    }
+
+    type_map_[rmt->type().name] = rmt;
+    resolver_[rmt->type().msg_name].push_back(rmt->type().pkg_name);
   }
 
   for (map<string, ROSMessageFields*>::iterator it = type_map_.begin();
@@ -172,9 +177,8 @@ void ROSTypeMap::populate(const string &msg_def) {
         if (qualified_names.size() == 1) {
           rmt->setFieldPkgName(i, qualified_names[0]);
         } else {
-          ROS_ERROR("Couldn't properly resolve name %s",
-                    field.type.msg_name.c_str());
-          ROS_BREAK();
+          throw invalid_argument("Multiple types for " + field.type.msg_name +
+                                 "\nMessage def: \n" + msg_def);
         }
       }
     }
@@ -221,7 +225,7 @@ vector<const ROSMessage*> ROSMessage::getField(const std::string key) const {
   return field;
 }
 
-int ROSMessage::populate(const ROSTypeMap &types, const uint8_t *bytes, int *beg) {
+void ROSMessage::populate(const ROSTypeMap &types, const uint8_t *bytes, int *beg) {
   if (type_.is_builtin) {
     int array_len = type_.array_size;
     if (array_len == -1) {
@@ -245,8 +249,7 @@ int ROSMessage::populate(const ROSTypeMap &types, const uint8_t *bytes, int *beg
   } else {
     const ROSMessageFields *mt = types.getMsgFields(type_.base_type);
     if (mt == NULL) {
-      ROS_WARN("Couldn't populate fields");
-      return -1;
+      throw invalid_argument("Couldn't populate fields");
     }
 
     for (int i = 0; i < mt->nfields(); ++i) {
@@ -259,14 +262,12 @@ int ROSMessage::populate(const ROSTypeMap &types, const uint8_t *bytes, int *beg
       for (int array_ind = 0; array_ind < array_len; ++array_ind) {
         ROSMessage *msg = new ROSMessage(field.type);
         fields_[field.name].push_back(msg);
-        if (msg->populate(types, bytes, beg) != 0) {
-          return -1;
-        }
+        // If populate throws, msg will be freed as it's in fields_
+        msg->populate(types, bytes, beg);
         size_ += msg->size();
       }
     }
   }
-  return 0;
 }
 
 
@@ -288,21 +289,17 @@ const ROSTypeMap* BagDeserializer::getTypeMap(const rosbag::MessageInstance &m) 
   return type_maps_[m.getDataType()];
 }
 
-int BagDeserializer::populateMsg(const ROSTypeMap &type_map,
+void BagDeserializer::populateMsg(const ROSTypeMap &type_map,
                                  const rosbag::MessageInstance &m,
                                  ROSMessage *rm) {
   bytes_.reset(new uint8_t[m.size()]);
   ros::serialization::IStream stream(bytes_.get(), m.size());
   m.write(stream);
 
-  int err = 0;
   int beg = 0;
-  if ((err = rm->populate(type_map, bytes_.get(), &beg)) != 0) {
-    return err;
-  } else if (beg != static_cast<int>(m.size())) {
-    return -1;
-  } else {
-    return 0;
+  rm->populate(type_map, bytes_.get(), &beg);
+  if (beg != static_cast<int>(m.size())) {
+    throw invalid_argument("Not all bytes were consumed while ");
   }
 }
 
@@ -310,15 +307,17 @@ ROSMessage* BagDeserializer::CreateMessage(const rosbag::MessageInstance &m) {
   const ROSTypeMap *rtm = getTypeMap(m);
 
   const ROSMessageFields *rmf = rtm->getMsgFields("0-root");
-  if (rmf == NULL) { // Shouldn't happen
-    return NULL;
+  if (rmf == NULL) {
+    throw invalid_argument("Couldn't get root message type");
   }
 
   ROSMessage *msg = new ROSMessage(rmf->type());
 
-  if (populateMsg(*rtm, m, msg) != 0) {
+  try {
+    populateMsg(*rtm, m, msg);
+  } catch (std::exception &e) {
     delete msg;
-    return NULL;
+    throw;
   }
 
   return msg;

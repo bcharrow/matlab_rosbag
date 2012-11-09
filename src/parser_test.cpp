@@ -68,6 +68,19 @@ TEST(ROSType, qualified_array) {
   EXPECT_EQ(-1, f.array_size);
 }
 
+TEST(ROSTypeMap, bad_def) {
+  ROSTypeMap rtm;
+  string def("foo field1\n"
+             "==\n"
+             "MSG: asdf/foo\n"
+             "uint8 field2\n"
+             "==\n"
+             "MSG: qwerty/foo\n"
+             "uint8 field3\n"
+             "\n");
+  ASSERT_THROW(rtm.populate(def), invalid_argument);
+}
+
 TEST(ROSMessageFields, parse_quaternion_def) {
   ROSMessageFields mt;
   string
