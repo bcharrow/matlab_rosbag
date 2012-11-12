@@ -108,9 +108,7 @@ void ROSMessageFields::populate(const string &msg_def) {
 
   boost::smatch what;
   for (size_t l = start_ind; l < lines.size(); ++l) {
-    if (lines[l].size() == 0 ||
-        boost::starts_with(lines[l], "#") ||
-        boost::regex_match(lines[l], what, whitespace_re)) {
+    if (lines[l].size() == 0 || boost::starts_with(lines[l], "#")) {
       continue;
     }
     vector<string> elements;
@@ -157,13 +155,14 @@ void ROSTypeMap::populate(const string &msg_def) {
       throw;
     }
 
+    type_map_[rmt->type().name] = rmt;
+    resolver_[rmt->type().msg_name].push_back(rmt->type().pkg_name);
+
+    // If we throw, rmt will be freed because it's in type_map_
     if (!rmt->type().is_qualified) {
       throw invalid_argument("Couldn't determine type in message:\n" +
                              split[i] + "\nFull message def is:\n" + msg_def);
     }
-
-    type_map_[rmt->type().name] = rmt;
-    resolver_[rmt->type().msg_name].push_back(rmt->type().pkg_name);
   }
 
   for (map<string, ROSMessageFields*>::iterator it = type_map_.begin();
@@ -299,7 +298,7 @@ void BagDeserializer::populateMsg(const ROSTypeMap &type_map,
   int beg = 0;
   rm->populate(type_map, bytes_.get(), &beg);
   if (beg != static_cast<int>(m.size())) {
-    throw invalid_argument("Not all bytes were consumed while ");
+    throw invalid_argument("Not all bytes were consumed while reading message");
   }
 }
 
