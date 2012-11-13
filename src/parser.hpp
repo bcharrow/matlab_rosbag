@@ -81,6 +81,7 @@ public:
   const std::vector<std::vector<uint8_t> > bytes() const { return bytes_; }
   const ROSType& type() const { return type_; }
   int size() const { return size_; }
+  int nfields() const { return fields_.size(); }
 
   std::vector<const ROSMessage*> getField(const std::string key) const;
   const_iterator begin() const { return fields_.begin(); }

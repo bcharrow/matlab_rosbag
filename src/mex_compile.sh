@@ -1,4 +1,4 @@
-mex -g read_bag.cpp parser.cpp  \
+mex -g rosbag_wrapper.cpp parser.cpp  \
   ./librosbag.a \
   ./librosconsole.a \
   ./libroscpp_serialization.a \
