@@ -114,7 +114,7 @@ void ROSMessageFields::populate(const string &msg_def) {
     vector<string> elements;
     boost::split_regex(elements, lines[l], whitespace_re);
     if (elements.size() != 2) {
-      throw invalid_argument("Bad line in message def: %s" + lines[l]);
+      throw invalid_argument("Bad line in message def: " + lines[l]);
     }
     fields_.push_back(Field(elements[1]));
     fields_.back().type.populate(elements[0]);
@@ -146,20 +146,20 @@ void ROSTypeMap::populate(const string &msg_def) {
   // Parse individual message types and make map from msg_name -> qualified name
   std::vector<ROSMessageFields*> types(split.size());
   for (size_t i = 0; i < split.size(); ++i) {
-    ROSMessageFields *rmt = new ROSMessageFields();
+    ROSMessageFields *rmf = new ROSMessageFields();
 
     try {
-      rmt->populate(split[i]);
+      rmf->populate(split[i]);
     } catch (exception &e) {
-      delete rmt;
+      delete rmf;
       throw;
     }
 
-    type_map_[rmt->type().name] = rmt;
-    resolver_[rmt->type().msg_name].push_back(rmt->type().pkg_name);
+    type_map_[rmf->type().name] = rmf;
+    resolver_[rmf->type().msg_name].push_back(rmf->type().pkg_name);
 
-    // If we throw, rmt will be freed because it's in type_map_
-    if (!rmt->type().is_qualified) {
+    // If we throw, rmf will be freed because it's in type_map_
+    if (!rmf->type().is_qualified) {
       throw invalid_argument("Couldn't determine type in message:\n" +
                              split[i] + "\nFull message def is:\n" + msg_def);
     }
@@ -168,13 +168,13 @@ void ROSTypeMap::populate(const string &msg_def) {
   for (map<string, ROSMessageFields*>::iterator it = type_map_.begin();
        it != type_map_.end();
        ++it) {
-    ROSMessageFields *rmt = (*it).second;
-    for (int i = 0; i < rmt->nfields(); ++i) {
-      const ROSMessageFields::Field &field = rmt->at(i);
+    ROSMessageFields *rmf = (*it).second;
+    for (int i = 0; i < rmf->nfields(); ++i) {
+      const ROSMessageFields::Field &field = rmf->at(i);
       if (!field.type.is_qualified) {
         const vector<string> qualified_names = resolver_[field.type.msg_name];
         if (qualified_names.size() == 1) {
-          rmt->setFieldPkgName(i, qualified_names[0]);
+          rmf->setFieldPkgName(i, qualified_names[0]);
         } else {
           throw invalid_argument("Multiple types for " + field.type.msg_name +
                                  "\nMessage def: \n" + msg_def);
@@ -245,13 +245,13 @@ void ROSMessage::populate(const ROSTypeMap &types, const uint8_t *bytes, int *be
       *beg += elem_size;
     }
   } else {
-    const ROSMessageFields *mt = types.getMsgFields(type_.base_type);
-    if (mt == NULL) {
+    const ROSMessageFields *rmf = types.getMsgFields(type_.base_type);
+    if (rmf == NULL) {
       throw invalid_argument("Couldn't populate fields");
     }
 
-    for (int i = 0; i < mt->nfields(); ++i) {
-      const ROSMessageFields::Field &field = mt->at(i);
+    for (int i = 0; i < rmf->nfields(); ++i) {
+      const ROSMessageFields::Field &field = rmf->at(i);
       int array_len = field.type.is_builtin ? 1 : field.type.array_size;
       if (array_len == -1) {
         array_len = read_uint32(bytes, beg);
