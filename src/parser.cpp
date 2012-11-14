@@ -113,8 +113,15 @@ void ROSMessageFields::populate(const string &msg_def) {
     if (lines[l].size() == 0 || boost::starts_with(lines[l], "#")) {
       continue;
     }
-    vector<string> elements;
-    boost::split_regex(elements, lines[l], whitespace_re);
+    vector<string> toks, elements;
+    boost::split_regex(toks, lines[l], whitespace_re);
+    for (size_t i = 0; i < toks.size(); ++i) {
+      if (boost::starts_with(toks[i], "#")) {
+        break;
+      } else {
+        elements.push_back(toks[i]);
+      }
+    }
     if (elements.size() != 2) {
       throw invalid_argument("Bad line in message def: " + lines[l]);
     }

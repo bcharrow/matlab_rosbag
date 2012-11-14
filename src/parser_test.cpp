@@ -104,6 +104,22 @@ TEST(ROSMessageFields, parse_quaternion_def) {
   EXPECT_EQ(string("w"), mt.at(3).name);
 }
 
+TEST(ROSMessageFields, parse_eol_comment) {
+  ROSMessageFields mt;
+  string
+    def("MSG: geometry_msgs/Quaternion\n"
+        "\n"
+        "float64 x # I'm an end of line comment float64 y\n"
+        "float64 z\n"
+        );
+  mt.populate(def);
+  EXPECT_EQ(string("geometry_msgs/Quaternion"), mt.type().name);
+  ASSERT_EQ(2, mt.nfields());
+  EXPECT_EQ(string("float64"), mt.at(0).type.name);
+  EXPECT_EQ(string("float64"), mt.at(1).type.name);
+  EXPECT_EQ(string("x"), mt.at(0).name);
+  EXPECT_EQ(string("z"), mt.at(1).name);
+}
 
 TEST(ROSMessageFields, parse_pose_def) {
   ROSMessageFields mt;
