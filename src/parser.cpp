@@ -193,7 +193,7 @@ const ROSMessageFields* ROSTypeMap::getMsgFields(const string &msg_type) const {
 }
 
 ROSMessage::ROSMessage(const ROSType &type)
-  : bytes_(0), size_(0), type_(type) {
+  : bytes_(0), type_(type) {
 
 }
 
@@ -243,7 +243,6 @@ void ROSMessage::populate(const ROSTypeMap &types, const uint8_t *bytes, int *be
         element[i] = bytes[*beg + i];
       }
       *beg += elem_size;
-      size_ += elem_size;
     }
   } else {
     const ROSMessageFields *mt = types.getMsgFields(type_.base_type);
@@ -263,7 +262,6 @@ void ROSMessage::populate(const ROSTypeMap &types, const uint8_t *bytes, int *be
         fields_[field.name].push_back(msg);
         // If populate throws, msg will be freed as it's in fields_
         msg->populate(types, bytes, beg);
-        size_ += msg->size();
       }
     }
   }

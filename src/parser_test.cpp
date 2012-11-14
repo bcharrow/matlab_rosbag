@@ -161,8 +161,6 @@ TEST(ROSMessage, single_string) {
   vector<const ROSMessage*> test = msg.getField(string("test"));
   ASSERT_EQ(1, test.size());
   EXPECT_EQ(beg, 6);
-  EXPECT_EQ(msg.size(), 2);
-  ASSERT_EQ(2, test.at(0)->size());
   EXPECT_EQ('h', test.at(0)->bytes()[0][0]);
   EXPECT_EQ('i', test.at(0)->bytes()[0][1]);
 }
@@ -191,7 +189,6 @@ TEST(ROSMessage, varlen_array) {
   vector<const ROSMessage*> points = msg.getField(string("points"));
   ASSERT_EQ(2, points.size());
   EXPECT_EQ(beg, 14);
-  EXPECT_EQ(msg.size(), 10);
 
   EXPECT_EQ(5, points[0]->getField(string("x"))[0]->bytes()[0][0]);
   EXPECT_EQ(1, points[0]->getField(string("y"))[0]->bytes()[0][0]);
