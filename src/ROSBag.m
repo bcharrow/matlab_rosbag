@@ -23,8 +23,12 @@ classdef ROSBag < handle
             hn = rosbag_wrapper(obj.handle, 'hasNext');
         end
 
-        function [msg] = readMessage(obj)
-            msg = rosbag_wrapper(obj.handle, 'readMessage');
+        function [msg, meta] = readMessage(obj)
+            if nargout == 1
+                msg = rosbag_wrapper(obj.handle, 'readMessage', false);
+            else
+                [msg, meta] = rosbag_wrapper(obj.handle, 'readMessage', true);
+            end
         end
     end
 end

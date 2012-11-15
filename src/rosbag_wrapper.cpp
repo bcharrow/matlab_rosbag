@@ -3,8 +3,8 @@
 #include <string>
 #include <map>
 
+#include <boost/optional.hpp>
 #include <boost/scoped_ptr.hpp>
-#include <boost/ptr_container/ptr_map.hpp>
 
 #include <ros/ros.h>
 #include <rosbag/bag.h>
@@ -72,22 +72,39 @@ mexWrap<string, vector<vector<uint8_t> > >(const vector<vector<uint8_t> > &b) {
   }
 }
 
-// Specialization for ros::Time.  Return a struct with 'sec' and 'nsec' fields.
+// Specialization for ros::Time from bytes.
+// Return a struct with integer 'sec', 'nsec', fields and a double 'time' field.
 template<> mxArray*
 mexWrap<ros::Time, vector<vector<uint8_t> > >(const vector<vector<uint8_t> > &b) {
-  const char *fields[] = {"sec", "nsec"};
-  mxArray *times = mxCreateStructMatrix(1, b.size(), 2, fields);
+  const char *fields[] = {"sec", "nsec", "time"};
+  mxArray *times =
+    mxCreateStructMatrix(1, b.size(), sizeof(fields)/sizeof(fields[0]), fields);
+
   for (int i = 0; i < b.size(); ++i) {
     if (b[i].size() != 8) {
         throw runtime_error("bad size");
     }
-    int32_t sec = 0, nsec = 0;
+    uint32_t sec = 0, nsec = 0;
     copy(b[i].begin(), b[i].begin() + 4, reinterpret_cast<uint8_t*>(&sec));
     copy(b[i].begin() + 4, b[i].end(), reinterpret_cast<uint8_t*>(&nsec));
-    mxSetField(times, i, fields[0], mexWrap<int32_t>(sec));
-    mxSetField(times, i, fields[1], mexWrap<int32_t>(nsec));
+    mxSetField(times, i, "sec", mexWrap<uint32_t>(sec));
+    mxSetField(times, i, "nsec", mexWrap<uint32_t>(nsec));
+    mxSetField(times, i, "time", mexWrap<double>(sec + 1e-9 * nsec));
   }
   return times;
+}
+
+// Specialization for ros::Time.
+// Return a struct with integer 'sec', 'nsec', fields and a doulbe 'time' field.
+template<>
+mxArray* mexWrap<ros::Time>(const ros::Time &t) {
+  const char *fields[] = {"sec", "nsec", "time"};
+  mxArray *time =
+    mxCreateStructMatrix(1, 1, sizeof(fields) / sizeof(fields[0]), fields);
+  mxSetField(time, 0, "sec", mexWrap<uint32_t>(t.sec));
+  mxSetField(time, 0, "nsec", mexWrap<uint32_t>(t.nsec));
+  mxSetField(time, 0, "time", mexWrap<double>(t.sec + 1e-9 * t.nsec));
+  return time;
 }
 
 // Specialization for bools.  Return a logical array.
@@ -191,7 +208,14 @@ public:
       vector<string> topics = mexUnwrap<vector<string> >(prhs[1]);
       resetView(topics);
     } else if (cmd == "readMessage") {
-      plhs[0] = readMessage();
+      bool meta = mexUnwrap<bool>(prhs[1]);
+      if (!meta) {
+        plhs[0] = readMessage();
+      } else {
+        mxArray *meta = NULL;
+        plhs[0] = readMessage(&meta);
+        plhs[1] = meta;
+      }
     } else if (cmd == "hasNext") {
       plhs[0] = mexWrap<bool>(hasNext());
     } else {
@@ -204,11 +228,22 @@ public:
     iter_ = view_->begin();
   }
 
-  mxArray* readMessage() {
+  mxArray* readMessage(boost::optional<mxArray**> meta = boost::none) {
     const rosbag::MessageInstance &m = *iter_;
     boost::scoped_ptr<ROSMessage> msg(deser_.CreateMessage(m));
+    mxArray *message = mexWrap<ROSMessage>(*msg);
+
+    if (meta) {
+      const char *fields[] = {"topic", "time", "datatype"};
+      mxArray *val =
+        mxCreateStructMatrix(1, 1, sizeof(fields) / sizeof(fields[0]), fields);
+      mxSetField(val, 0, "topic", mexWrap<string>(m.getTopic()));
+      mxSetField(val, 0, "time", mexWrap<ros::Time>(m.getTime()));
+      mxSetField(val, 0, "datatype", mexWrap<string>(m.getDataType()));
+      **meta = val;
+    }
     ++iter_;
-    return mexWrap<ROSMessage>(*msg);
+    return message;
   }
 
   bool hasNext() const {
