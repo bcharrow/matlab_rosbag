@@ -272,25 +272,16 @@ private:
 
 static InstanceManager manager;
 
-void usage() {
-    mexErrMsgTxt("rosbag_wrapper id ...");
-}
-
 void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[]) {
   if (nrhs < 1) {
-    usage();
+    mexErrMsgTxt("rosbag_wrapper id ...");
   }
 
-  try {
-    uint64_t id = mexUnwrap<uint64_t>(prhs[0]);
-
-    if (id == 0) {
-      manager.mex(nlhs, plhs, nrhs - 1, prhs + 1);
-    } else {
-      ROSBagWrapper *wrapper = manager.get(id);
-      wrapper->mex(nlhs, plhs, nrhs - 1, prhs + 1);
-    }
-  } catch (const exception& e) {
-    mexErrMsgTxt(("Exception from read_bag:\n"+string(e.what())+"\n").c_str());
+  uint64_t id = mexUnwrap<uint64_t>(prhs[0]);
+  if (id == 0) {
+    manager.mex(nlhs, plhs, nrhs - 1, prhs + 1);
+  } else {
+    ROSBagWrapper *wrapper = manager.get(id);
+    wrapper->mex(nlhs, plhs, nrhs - 1, prhs + 1);
   }
 }

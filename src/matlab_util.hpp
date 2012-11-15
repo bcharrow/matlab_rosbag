@@ -53,7 +53,7 @@ extern "C" {
 //*****************************************************************************
 
 void error(const char* str) {
-  throw std::runtime_error(str);
+  mexErrMsgIdAndTxt("wrap:error", str);
 }
 
 mxArray *scalar(mxClassID classid) {
