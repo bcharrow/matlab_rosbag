@@ -30,5 +30,16 @@ classdef ROSBag < handle
                 [msg, meta] = rosbag_wrapper(obj.handle, 'readMessage', true);
             end
         end
+
+        function [msg, meta] = readAllMessages(obj, topics)
+            if nargin == 2
+                obj.resetView(topics)
+            end
+            if nargout == 1
+                msg = rosbag_wrapper(obj.handle, 'readAllMessages', false);
+            else
+                [msg, meta] = rosbag_wrapper(obj.handle, 'readAllMessages', true);
+            end
+        end
     end
 end

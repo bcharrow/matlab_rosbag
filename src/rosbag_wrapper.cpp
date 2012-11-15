@@ -3,7 +3,6 @@
 #include <string>
 #include <map>
 
-#include <boost/optional.hpp>
 #include <boost/scoped_ptr.hpp>
 
 #include <ros/ros.h>
@@ -208,13 +207,24 @@ public:
       vector<string> topics = mexUnwrap<vector<string> >(prhs[1]);
       resetView(topics);
     } else if (cmd == "readMessage") {
+      if (nrhs != 2) {
+        error("ROSBagWrapper::mex() Expected two arguments");
+      }
       bool meta = mexUnwrap<bool>(prhs[1]);
       if (!meta) {
-        plhs[0] = readMessage();
+        readMessage(&plhs[0]);
       } else {
-        mxArray *meta = NULL;
-        plhs[0] = readMessage(&meta);
-        plhs[1] = meta;
+        readMessage(&plhs[0], &plhs[1]);
+      }
+    } else if (cmd == "readAllMessages") {
+      if (nrhs != 2) {
+        error("ROSBagWrapper::mex() Expected two arguments");
+      }
+      bool meta = mexUnwrap<bool>(prhs[1]);
+      if (!meta) {
+        readAllMessages(&plhs[0]);
+      } else {
+        readAllMessages(&plhs[0], &plhs[1]);
       }
     } else if (cmd == "hasNext") {
       plhs[0] = mexWrap<bool>(hasNext());
@@ -228,22 +238,51 @@ public:
     iter_ = view_->begin();
   }
 
-  mxArray* readMessage(boost::optional<mxArray**> meta = boost::none) {
-    const rosbag::MessageInstance &m = *iter_;
-    boost::scoped_ptr<ROSMessage> msg(deser_.CreateMessage(m));
-    mxArray *message = mexWrap<ROSMessage>(*msg);
-
-    if (meta) {
-      const char *fields[] = {"topic", "time", "datatype"};
-      mxArray *val =
-        mxCreateStructMatrix(1, 1, sizeof(fields) / sizeof(fields[0]), fields);
-      mxSetField(val, 0, "topic", mexWrap<string>(m.getTopic()));
-      mxSetField(val, 0, "time", mexWrap<ros::Time>(m.getTime()));
-      mxSetField(val, 0, "datatype", mexWrap<string>(m.getDataType()));
-      **meta = val;
-    }
+  void readMessage(mxArray **msg) {
+    const rosbag::MessageInstance &mi = *iter_;
+    boost::scoped_ptr<ROSMessage> rmsg(deser_.CreateMessage(mi));
+    *msg = mexWrap<ROSMessage>(*rmsg);
     ++iter_;
-    return message;
+  }
+
+  void readMessage(mxArray **msg, mxArray **meta) {
+    const rosbag::MessageInstance &mi = *iter_;
+    const char *fields[] = {"topic", "time", "datatype"};
+    mxArray *val =
+      mxCreateStructMatrix(1, 1, sizeof(fields) / sizeof(fields[0]), fields);
+    mxSetField(val, 0, "topic", mexWrap<string>(mi.getTopic()));
+    mxSetField(val, 0, "time", mexWrap<ros::Time>(mi.getTime()));
+    mxSetField(val, 0, "datatype", mexWrap<string>(mi.getDataType()));
+    *meta = val;
+
+    readMessage(msg);
+  }
+
+  void readAllMessages(mxArray **msg) {
+    vector<mxArray*> msgs;
+    while (hasNext()) {
+      msgs.push_back(NULL);
+      readMessage(&msgs.back());
+    }
+    *msg = mxCreateCellMatrix(1, msgs.size());
+    for (int i = 0; i < msgs.size(); ++i) {
+      mxSetCell(*msg, i, msgs[i]);
+    }
+  }
+
+  void readAllMessages(mxArray **msg, mxArray **meta) {
+    vector<mxArray*> msgs, metas;
+    while (hasNext()) {
+      msgs.push_back(NULL);
+      metas.push_back(NULL);
+      readMessage(&msgs.back(), &metas.back());
+    }
+    *msg = mxCreateCellMatrix(1, msgs.size());
+    *meta = mxCreateCellMatrix(1, metas.size());
+    for (int i = 0; i < msgs.size(); ++i) {
+      mxSetCell(*msg, i, msgs[i]);
+      mxSetCell(*meta, i, metas[i]);
+    }
   }
 
   bool hasNext() const {
