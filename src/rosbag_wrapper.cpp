@@ -188,8 +188,8 @@ public:
   void mex(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[]) {
     string cmd = mexUnwrap<string>(prhs[0]);
     if (cmd == "resetView") {
-      string topic = mexUnwrap<string>(prhs[1]);
-      resetView(topic);
+      vector<string> topics = mexUnwrap<vector<string> >(prhs[1]);
+      resetView(topics);
     } else if (cmd == "readMessage") {
       plhs[0] = readMessage();
     } else if (cmd == "hasNext") {
@@ -199,9 +199,7 @@ public:
     }
   }
 
-  void resetView(const string topic) {
-    vector<string> topics;
-    topics.push_back(topic);
+  void resetView(const vector<string> &topics) {
     view_.reset(new rosbag::View(bag_, rosbag::TopicQuery(topics)));
     iter_ = view_->begin();
   }

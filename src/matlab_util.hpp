@@ -106,9 +106,9 @@ mxArray* mexWrap<char>(const char& value) {
 }
 
 // Macro to create template specialization for mexWrap() when passed a builtin
-#define __CREATE_MEX_WRAP(CPP_TYPE, MATLAB_TYPE)         \
+#define __CREATE_MEX_WRAP(CPP_TYPE, MATLAB_TYPE)        \
   template<>                                            \
-  mxArray* mexWrap<CPP_TYPE>(const CPP_TYPE& value) {      \
+  mxArray* mexWrap<CPP_TYPE>(const CPP_TYPE& value) {   \
     mxArray *result = scalar(MATLAB_TYPE);              \
     *static_cast<CPP_TYPE*>(mxGetData(result)) = value; \
     return result;                                      \
@@ -179,4 +179,29 @@ std::string mexUnwrap<std::string>(const mxArray* array) {
   std::string str(data);
   mxFree(data);
   return str;
+}
+
+// Convert Matlab strings to C++ vector of strings.  The input can be a string
+// or a cell array of strings.  The vector's ith element is the contents of the
+// cell array's ith linear index.
+template<>
+std::vector<std::string> mexUnwrap(const mxArray *array) {
+  std::vector<std::string> strings;
+
+  if (mxIsChar(array)) {
+    strings.push_back(mexUnwrap<std::string>(array));
+  } else if (mxIsCell(array)) {
+    size_t numel = mxGetNumberOfElements(array);
+    strings.resize(numel);
+    for (size_t i = 0; i < numel; ++i) {
+      mxArray *str = mxGetCell(array, i);
+      if (!mxIsChar(str)) {
+        error("mexUnwrap<vector<string>>: non-character array in cell");
+      }
+      strings[i] = mexUnwrap<std::string>(str);
+    }
+  } else {
+    error("mexUnwrap<vector<string>>: not a cell array");
+  }
+  return strings;
 }
