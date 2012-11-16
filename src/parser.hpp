@@ -19,7 +19,6 @@ struct ROSType {
   std::string base_type;  // Concatenation of msg_name and pkg_name
   std::string msg_name;   // geometry_msgs/Pose[40] -> Pose
   std::string pkg_name;   // geometry_msgs/Pose[40] -> geometry_msgs
-  std::string array_type; // geometry_msgs/Pose[40] -> [40]
   bool is_array;          // True if the type is an array
   bool is_qualified;      // True if the type is builtin or fully qualified
   bool is_builtin;        // True if the type is ROS builtin

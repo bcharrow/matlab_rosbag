@@ -13,7 +13,6 @@ TEST(ROSType, builtin) {
   EXPECT_EQ(string("string"), f.base_type);
   EXPECT_EQ(string("string"), f.msg_name);
   EXPECT_EQ(string(""), f.pkg_name);
-  EXPECT_EQ(string(""), f.array_type);
   EXPECT_FALSE(f.is_array);
   EXPECT_TRUE(f.is_qualified);
   EXPECT_FALSE(f.is_array);
@@ -29,7 +28,6 @@ TEST(ROSType, unqualified_array) {
   EXPECT_EQ(string("foo"), f.base_type);
   EXPECT_EQ(string("foo"), f.msg_name);
   EXPECT_EQ(string(""), f.pkg_name);
-  EXPECT_EQ(string("[40]"), f.array_type);
   EXPECT_TRUE(f.is_array);
   EXPECT_FALSE(f.is_qualified);
   EXPECT_TRUE(f.is_array);
@@ -44,7 +42,6 @@ TEST(ROSType, builtin_fixedlen_array) {
   EXPECT_EQ(string("float64"), f.base_type);
   EXPECT_EQ(string("float64"), f.msg_name);
   EXPECT_EQ(string(""), f.pkg_name);
-  EXPECT_EQ(string("[32]"), f.array_type);
   EXPECT_TRUE(f.is_array);
   EXPECT_TRUE(f.is_qualified);
   EXPECT_TRUE(f.is_array);
@@ -61,7 +58,6 @@ TEST(ROSType, qualified_array) {
   EXPECT_EQ(string("geometry_msgs/Pose"), f.base_type);
   EXPECT_EQ(string("Pose"), f.msg_name);
   EXPECT_EQ(string("geometry_msgs"), f.pkg_name);
-  EXPECT_EQ(string("[]"), f.array_type);
   EXPECT_TRUE(f.is_array);
   EXPECT_TRUE(f.is_qualified);
   EXPECT_TRUE(f.is_array);

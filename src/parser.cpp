@@ -51,7 +51,6 @@ void ROSType::populate(const string &type_str) {
   if (boost::regex_search(type_field, what, array_re)) {
     is_array = true;
     msg_name = string(what[1].first, what[1].second);
-    array_type = string(what[2].first, what[2].second);
     if (what.size() == 3) {
       array_size = -1;
     } else if (what.size() == 4) {
@@ -63,7 +62,6 @@ void ROSType::populate(const string &type_str) {
   } else {
     is_array = false;
     msg_name = type_field;
-    array_type = "";
     array_size = 1;
   }
 
@@ -101,7 +99,6 @@ void ROSMessageFields::populate(const string &msg_def) {
     type_.base_type = "0-root";
     type_.msg_name = "";
     type_.pkg_name = "0-root";
-    type_.array_type = "";
     type_.is_array = false;
     type_.is_qualified = true;
     type_.is_builtin = false;
