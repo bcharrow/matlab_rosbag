@@ -1,18 +1,19 @@
 mex -g rosbag_wrapper.cpp parser.cpp  \
-  ./librosbag.a \
-  ./librosconsole.a \
-  ./libroscpp_serialization.a \
-  ./libros.a \
-  ./librostime.a \
-  ./liblog4cxx.a \
-  ./libaprutil-1.a \
-  ./libapr-1.a \
-  ./libexpat.a \
-  ../lib_boost/libboost_filesystem.a \
-  ../lib_boost/libboost_system.a \
-  ../lib_boost/libboost_signals.a \
-  ../lib_boost/libboost_thread.a \
-  ../lib_boost/libboost_regex.a \
+  ../lib/librosbag.a \
+  ../lib/librosconsole.a \
+  ../lib/libroscpp_serialization.a \
+  ../lib/libros.a \
+  ../lib/librostime.a \
+  ../lib/liblog4cxx.a \
+  ../lib/libaprutil-1.a \
+  ../lib/libapr-1.a \
+  ../lib/libexpat.a \
+  ../lib/libboost_filesystem.a \
+  ../lib/libboost_system.a \
+  ../lib/libboost_signals.a \
+  ../lib/libboost_thread.a \
+  ../lib/libboost_regex.a \
+  ../lib/libbz2.a \
 -I/opt/ros/electric/stacks/ros_comm/tools/rosbag/include \
 -I/opt/ros/electric/stacks/ros_comm/clients/cpp/roscpp/include \
 -I/opt/ros/electric/stacks/ros_comm/clients/cpp/roscpp_serialization/include \
@@ -21,5 +22,4 @@ mex -g rosbag_wrapper.cpp parser.cpp  \
 -I/opt/ros/electric/stacks/ros_comm/tools/rosconsole/include \
 -I/opt/ros/electric/stacks/ros_comm/utilities/rostime/include \
 -I/opt/ros/electric/stacks/ros_comm/utilities/cpp_common/include \
-  -lbz2 \
   -lrt
