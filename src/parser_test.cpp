@@ -100,11 +100,12 @@ TEST(ROSMessageFields, parse_quaternion_def) {
   EXPECT_EQ(string("w"), mt.at(3).name);
 }
 
-TEST(ROSMessageFields, parse_eol_comment) {
+TEST(ROSMessageFields, parse_comments) {
   ROSMessageFields mt;
   string
     def("MSG: geometry_msgs/Quaternion\n"
         "\n"
+        "          # I'm a comment after whitespace\n"
         "float64 x # I'm an end of line comment float64 y\n"
         "float64 z\n"
         );

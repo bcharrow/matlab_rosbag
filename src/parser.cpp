@@ -8,6 +8,19 @@
 
 using namespace std;
 
+bool validTypeName(const std::string &ref) {
+  static const boost::regex re("[a-zA-Z][a-zA-Z1-9_]*"
+                               "(/[a-zA-Z][a-zA-Z1-9_]*)??"
+                               "(\\[[0-9]*\\])??");
+  return boost::regex_match(ref, re);
+}
+
+bool validFieldName(const std::string &ref) {
+  static const boost::regex re("[a-zA-Z][a-zA-Z1-9_]*");
+  return boost::regex_match(ref, re);
+}
+
+
 map<string,int> init_builtins() {
   map<string,int> builtins;
   const char *types[] = {"bool",
@@ -31,6 +44,9 @@ map<string,int> init_builtins() {
 map<string,int> ROSType::builtins_(init_builtins());
 
 void ROSType::populate(const string &type_str) {
+  if (!validTypeName(type_str)) {
+    throw invalid_argument("Bad type string: " + type_str);
+  }
   name = type_str;
 
   vector<string> fields;
@@ -43,7 +59,7 @@ void ROSType::populate(const string &type_str) {
     pkg_name = fields[0];
     type_field = fields[1];
   } else {
-    throw invalid_argument("Bad type string: " + type_str);
+    throw runtime_error("Didn't catch bad type string: " + type_str);
   }
 
   static const boost::regex array_re("(.+)(\\[([0-9]*)\\])");
@@ -57,7 +73,7 @@ void ROSType::populate(const string &type_str) {
       string size(what[3].first, what[3].second);
       array_size = size.empty() ? -1 : atoi(size.c_str());
     } else {
-      throw invalid_argument("Bad type string: " + type_str);
+      throw runtime_error("Didn't catch bad type string: " + type_str);
     }
   } else {
     is_array = false;
@@ -82,17 +98,47 @@ void ROSType::populate(const string &type_str) {
   }
 }
 
+/**
+ * Return vector where each element corresponds to a non-empty line of
+ * non-commented out tokens
+ *
+ */
+vector<vector<string> > tokenize(const string &msg_def) {
+  static const boost::regex nonwhitespace_re("\\S+");
+  vector<vector<string> > lines;
+  vector<string> tokens;
+  stringstream ss(msg_def);
+  string line;
+
+  while (getline(ss, line, '\n')) {
+    boost::match_results<std::string::const_iterator> what;
+    string::const_iterator begin = line.begin(), end = line.end();
+    lines.push_back(vector<string>());
+    while (regex_search(begin, end, what, nonwhitespace_re)) {
+      begin = what[0].second;
+      if (string(what[0])[0] != '#') {
+        lines.back().push_back(what[0]);
+      } else {
+        break;
+      }
+    }
+
+    if (lines.back().size() == 0) {
+      lines.pop_back();
+    }
+  }
+  return lines;
+}
+
 void ROSMessageFields::populate(const string &msg_def) {
-  static const boost::regex newline_re("\\n+");
-  static const boost::regex whitespace_re("\\s+");
-  vector<string> lines;
-  boost::split_regex(lines, msg_def, newline_re);
+  vector<vector<string> > lines = tokenize(msg_def);
 
   int start_ind = 0;
-  if (boost::starts_with(lines[0], "MSG:")) {
-    vector<string> parts;
-    boost::split_regex(parts, lines[0], whitespace_re);
-    type_.populate(parts[1]);
+  if (lines.at(0).at(0) == "MSG:") {
+    if (lines.at(0).size() != 2 || !validTypeName(lines.at(0).at(1))) {
+      throw invalid_argument("Invalid header in message def:\n" + msg_def);
+    }
+    type_.populate(lines.at(0).at(1));
     start_ind = 1;
   } else {
     type_.name = "0-root";
@@ -105,25 +151,25 @@ void ROSMessageFields::populate(const string &msg_def) {
     type_.array_size = 1;
   }
 
-  boost::smatch what;
   for (size_t l = start_ind; l < lines.size(); ++l) {
-    if (lines[l].size() == 0 || boost::starts_with(lines[l], "#")) {
-      continue;
+    const vector<string> toks = lines[l];
+    if (toks.size() != 2) {
+      stringstream ss;
+      ss << toks.size() << " tokens on line " << l << ":\n" << msg_def;
+      throw invalid_argument(string(ss.str()));
     }
-    vector<string> toks, elements;
-    boost::split_regex(toks, lines[l], whitespace_re);
-    for (size_t i = 0; i < toks.size(); ++i) {
-      if (boost::starts_with(toks[i], "#")) {
-        break;
-      } else {
-        elements.push_back(toks[i]);
-      }
+    // Check that the first two tokens are valid and remaining tokens -- if
+    // they exist -- are comments
+    const std::string &type = toks.at(0);
+    const std::string &name = toks.at(1);
+    if (!validFieldName(name)) {
+      throw invalid_argument("Bad field '" + name + "':\n" + msg_def);
+    } else if (!validTypeName(type)) {
+      throw invalid_argument("Bad type '" + type + "' :\n" + msg_def);
+    } else {
+      fields_.push_back(Field(name));
+      fields_.back().type.populate(type);
     }
-    if (elements.size() != 2) {
-      throw invalid_argument("Bad line in message def: " + lines[l]);
-    }
-    fields_.push_back(Field(elements[1]));
-    fields_.back().type.populate(elements[0]);
   }
 }
 
