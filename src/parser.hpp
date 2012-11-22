@@ -23,7 +23,7 @@ struct ROSType {
   bool is_qualified;      // True if the type is builtin or fully qualified
   bool is_builtin;        // True if the type is ROS builtin
   int array_size;         // 1 if !is_array, -1 if is_array and array is
-                          // variable length, otherwise length in array_type
+                          // variable length, otherwise length in name
   int type_size;          // If builtin, size of builtin, -1 means variable
                           // length (i.e. string).  If not builtin, undefined.
 private:
@@ -73,21 +73,31 @@ private:
 // A representation of an instance of a specific message type
 class ROSMessage {
 public:
-  typedef std::map<std::string, std::vector<ROSMessage*> >::const_iterator const_iterator;
+  class Field {
+  public:
+    Field(const std::string &name) : name_(name) {}
+
+    const std::string& name() const { return name_; }
+    const ROSMessage& at(int i) const { return *values_.at(i); }
+    int size() const { return values_.size(); }
+  private:
+    std::string name_;
+    std::vector<ROSMessage*> values_;
+
+    friend class ROSMessage;
+  };
   ROSMessage(const ROSType &type);
   ~ROSMessage();
 
-  const std::vector<std::vector<uint8_t> > bytes() const { return bytes_; }
+  const std::vector<std::vector<uint8_t> >& bytes() const { return bytes_; }
   const ROSType& type() const { return type_; }
   int nfields() const { return fields_.size(); }
-
-  std::vector<const ROSMessage*> getField(const std::string key) const;
-  const_iterator begin() const { return fields_.begin(); }
-  const_iterator end() const { return fields_.end(); }
+  const Field& lookupField(const std::string &key) const;
+  const Field& at(int i) const { return *fields_.at(i); }
 
   void populate(const ROSTypeMap &types, const uint8_t *bytes, int *beg);
 private:
-  mutable std::map<std::string, std::vector<ROSMessage*> > fields_;
+  std::vector<Field*> fields_;
   std::vector<std::vector<uint8_t> > bytes_;
   const ROSType type_;
 };

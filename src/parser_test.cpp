@@ -171,11 +171,11 @@ TEST(ROSMessage, single_string) {
   int beg = 0;
   msg.populate(rtm, bytes, &beg);
 
-  vector<const ROSMessage*> test = msg.getField(string("test"));
+  const ROSMessage::Field &test = msg.lookupField(string("test"));
   ASSERT_EQ(1, test.size());
   EXPECT_EQ(beg, 6);
-  EXPECT_EQ('h', test.at(0)->bytes()[0][0]);
-  EXPECT_EQ('i', test.at(0)->bytes()[0][1]);
+  EXPECT_EQ('h', test.at(0).bytes()[0][0]);
+  EXPECT_EQ('i', test.at(0).bytes()[0][1]);
 }
 
 TEST(ROSMessage, varlen_array) {
@@ -199,21 +199,21 @@ TEST(ROSMessage, varlen_array) {
   int beg = 0;
   msg.populate(rtm, bytes, &beg);
 
-  vector<const ROSMessage*> points = msg.getField(string("points"));
+  const ROSMessage::Field &points = msg.lookupField(string("points"));
   ASSERT_EQ(2, points.size());
   EXPECT_EQ(beg, 14);
 
-  EXPECT_EQ(5, points[0]->getField(string("x"))[0]->bytes()[0][0]);
-  EXPECT_EQ(1, points[0]->getField(string("y"))[0]->bytes()[0][0]);
-  EXPECT_EQ(0, points[0]->getField(string("y"))[0]->bytes()[0][1]);
-  EXPECT_EQ(0, points[0]->getField(string("y"))[0]->bytes()[0][2]);
-  EXPECT_EQ(0, points[0]->getField(string("y"))[0]->bytes()[0][3]);
+  EXPECT_EQ(5, points.at(0).lookupField("x").at(0).bytes()[0][0]);
+  EXPECT_EQ(1, points.at(0).lookupField("y").at(0).bytes()[0][0]);
+  EXPECT_EQ(0, points.at(0).lookupField("y").at(0).bytes()[0][1]);
+  EXPECT_EQ(0, points.at(0).lookupField("y").at(0).bytes()[0][2]);
+  EXPECT_EQ(0, points.at(0).lookupField("y").at(0).bytes()[0][3]);
 
-  EXPECT_EQ(6, points[1]->getField(string("x"))[0]->bytes()[0][0]);
-  EXPECT_EQ(0, points[1]->getField(string("y"))[0]->bytes()[0][0]);
-  EXPECT_EQ(1, points[1]->getField(string("y"))[0]->bytes()[0][1]);
-  EXPECT_EQ(0, points[1]->getField(string("y"))[0]->bytes()[0][2]);
-  EXPECT_EQ(1, points[1]->getField(string("y"))[0]->bytes()[0][3]);
+  EXPECT_EQ(6, points.at(1).lookupField("x").at(0).bytes()[0][0]);
+  EXPECT_EQ(0, points.at(1).lookupField("y").at(0).bytes()[0][0]);
+  EXPECT_EQ(1, points.at(1).lookupField("y").at(0).bytes()[0][1]);
+  EXPECT_EQ(0, points.at(1).lookupField("y").at(0).bytes()[0][2]);
+  EXPECT_EQ(1, points.at(1).lookupField("y").at(0).bytes()[0][3]);
 }
 
 

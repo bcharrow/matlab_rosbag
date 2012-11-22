@@ -123,41 +123,30 @@ mexWrap<bool, vector<vector<uint8_t> > >(const vector<vector<uint8_t> > &b) {
 
 
 // Forward declare template specialization; mexWrap<ROSMessage> and
-// mexWrap<vector<ROSMessage*> > call each other, so this breaks cycle
+// mexWrap<ROSMessage::Field> call each other, so this breaks the cycle
 template<>
 mxArray* mexWrap<ROSMessage>(const ROSMessage &m);
 
 template<>
-mxArray* mexWrap<vector<ROSMessage*> >(const vector<ROSMessage*> &msgs) {
-  if (msgs[0]->type().is_builtin) {
-    // Create the builtin type
-    if (msgs.size() != 1) {
+mxArray* mexWrap<ROSMessage::Field>(const ROSMessage::Field &field) {
+  if (field.at(0).type().is_builtin) {
+    if (field.size() != 1) {
       throw runtime_error("Shouldn't have multiple arrays of builtins");
     }
-    return mexWrap<ROSMessage>(*msgs[0]);
+    return mexWrap<ROSMessage>(field.at(0));
   } else {
-    // Get fields for this message type
-    const ROSMessage *msg = msgs[0];
-    boost::scoped_array<const char*> fields(new const char*[msg->nfields()]);
-    int i = 0;
-    for (ROSMessage::const_iterator it = msg->begin(); it != msg->end(); ++it) {
-      fields[i] = it->first.c_str();
-      ++i;
+    const ROSMessage &msg = field.at(0);
+    boost::scoped_array<const char*> names(new const char*[msg.nfields()]);
+    for (int i = 0; i < msg.nfields(); ++i) {
+      names[i] = msg.at(i).name().c_str();
     }
-
-    // Create an array of structs and then populate it by iterating over each
-    // field of each message
-    mxArray *rv = mxCreateStructMatrix(1, msgs.size(),
-                                       msg->nfields(), fields.get());
-    for (i = 0; i < msgs.size(); ++i) {
-      msg = msgs[i];
-      for (ROSMessage::const_iterator it = msg->begin();
-           it != msg->end();
-           ++it) {
-        const vector<ROSMessage*> &field_val = it->second;
-
-        mxArray *val = mexWrap<vector<ROSMessage*> >(field_val);
-        mxSetField(rv, i, it->first.c_str(), val);
+    mxArray *rv = mxCreateStructMatrix(1, field.size(),
+                                       msg.nfields(), names.get());
+    for (int i = 0; i < field.size(); ++i) {
+      const ROSMessage &msg = field.at(i);
+      for (int j = 0; j < msg.nfields(); ++j) {
+        mxArray *val = mexWrap<ROSMessage::Field>(msg.at(j));
+        mxSetField(rv, i, msg.at(j).name().c_str(), val);
       }
     }
     return rv;
@@ -169,12 +158,24 @@ mxArray* mexWrap<vector<ROSMessage*> >(const vector<ROSMessage*> &msgs) {
 template<>
 mxArray* mexWrap<ROSMessage>(const ROSMessage &msg) {
   if (!msg.type().is_builtin) {
-    std::vector<ROSMessage*> m;
-    m.push_back(const_cast<ROSMessage*>(&msg));
-    return mexWrap<vector<ROSMessage*> >(m);
+    // Get fields for this message type
+    boost::scoped_array<const char*> names(new const char*[msg.nfields()]);
+    for (int i = 0; i < msg.nfields(); ++i) {
+      names[i] = msg.at(i).name().c_str();
+    }
+
+    // Create an array of structs and then populate it by iterating over each
+    // field of each message
+    mxArray *rv = mxCreateStructMatrix(1, 1, msg.nfields(), names.get());
+    for (int f = 0; f < msg.nfields(); ++f) {
+      const ROSMessage::Field &field = msg.at(f);
+      mxArray *val = mexWrap<ROSMessage::Field>(field);
+      mxSetField(rv, 0, field.name().c_str(), val);
+    }
+    return rv;
   } else {
-    string type = msg.type().base_type;
-    vector<vector<uint8_t> > bytes = msg.bytes();
+    const string &type = msg.type().base_type;
+    const vector<vector<uint8_t> > &bytes = msg.bytes();
     if (type == "bool")          { return mexWrap<bool>(bytes); }
     else if (type == "uint8")    { return mexWrap<uint8_t>(bytes); }
     else if (type == "uint16")   { return mexWrap<uint16_t>(bytes); }

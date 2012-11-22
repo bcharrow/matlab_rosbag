@@ -17,11 +17,11 @@ void printer(const ROSMessage &m, int indent = 0) {
   ROS_INFO("%s%s",
            spacer.c_str(), m.type().name.c_str());
 
-  for (ROSMessage::const_iterator it = m.begin(); it != m.end(); ++it) {
-    ROS_INFO("%s- %s:", spacer.c_str(), (*it).first.c_str());
-    const std::vector<ROSMessage*> &fields = (*it).second;
-    for (size_t i = 0; i < fields.size(); ++i) {
-      printer(*fields[i], indent + 4);
+  for (int i = 0; i < m.nfields(); ++i) {
+    const ROSMessage::Field &field = m.at(i);
+    ROS_INFO("%s- %s:", spacer.c_str(), field.name().c_str());
+    for (int j = 0; j < field.size(); ++j) {
+      printer(field.at(j), indent + 4);
     }
   }
 }
