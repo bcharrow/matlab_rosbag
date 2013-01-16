@@ -1,13 +1,13 @@
 <package>
-  <description brief="matlab_bag">
+  <description brief="matlab_rosbag">
 
-     matlab_bag
+     matlab_rosbag
 
   </description>
   <author>bcharrow</author>
   <license>BSD</license>
   <review status="unreviewed" notes=""/>
-  <url>http://ros.org/wiki/matlab_bag</url>
+  <url>http://ros.org/wiki/matlab_rosbag</url>
   <depend package="topic_tools"/>
   <depend package="rosbag"/>
 

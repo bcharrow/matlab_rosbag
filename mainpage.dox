@@ -2,7 +2,7 @@
 \mainpage
 \htmlinclude manifest.html
 
-\b matlab_bag is ... 
+\b matlab_rosbag is ... 
 
 <!-- 
 Provide an overview of your package.
