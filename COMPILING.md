@@ -4,7 +4,9 @@ In order to compile rosbag_wrapper into a mex function so that it can be used on
 
 Even if you only want to compile code for your machine, Matlab comes with its own version of several libraries used by ROS -- most notably Boost -- and these versions may be incompatible with your system version.  So, you'll either need to statically compile boost, or compile and link against the version that Matlab uses.
 
-For each of these instructions, LIB_DIR refers to a directory where you collect all static libraries needed for mex_compile.sh
+For each of these instructions, LIB_DIR refers to a directory where you collect all static libraries needed.
+
+See <tt>mex_compile.sh</tt> for an example of the compilation command for rosbag_wrapper.
 
 ### ROS libraries using ROS electric
 
@@ -16,7 +18,7 @@ To compile static libraries go to a package's build folder and enter:
 
     cmake .. -DROS_BUILD_STATIC_LIBS:=true && make
 
-Now check in ../lib and copy the static version of the library to DIR_PATH.
+Now check in ../lib and copy the static version of the library to LIB_DIR.
 
 ### [Boost](http://www.boost.org/users/download/)
 
