@@ -1,0 +1,24 @@
+#=================================== Usage ===================================#
+
+Open up Matlab and add the directory this README is in to your path.  You
+should now be able to access ros.Bag, a Matlab class which can read ROS
+messages on topics from a bag and return them as structs.  Multiple messages
+are returned as cell arrays.  It's also possible to access some meta-data
+(e.g., topic, msg type).  To get an idea of how the code works go to the
+example directory and look at example.m and example.bag.
+
+The fields in the structs are guaranteed to be in the same order as they are in
+the message definition.  There are also some utilities for converting messages
+from structs to matrices.
+
+#========================== Ubuntu Later than 10.04 ==========================#
+
+Matlab ships with an old version of the C++ standard library that you'll need
+to get rid of if you use a version of Ubuntu after 10.04.  To do this, quit
+Matlab and follow these steps from the command line:
+
+    cd /usr/local/MATLAB/<version>/sys/os/<system>
+    mkdir backup
+    mv libstdc++* backup
+
+Start Matlab up again and things should work.
