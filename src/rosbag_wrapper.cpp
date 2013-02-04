@@ -3,6 +3,8 @@
 #include <string>
 #include <map>
 
+#include <wordexp.h>
+
 #include <boost/scoped_ptr.hpp>
 
 #include <ros/ros.h>
@@ -199,7 +201,15 @@ mxArray* mexWrap<ROSMessage>(const ROSMessage &msg) {
 class ROSBagWrapper {
 public:
   ROSBagWrapper(const string &fname) : path_(fname), view_(NULL) {
-    bag_.open(fname.c_str(), rosbag::bagmode::Read);
+    // Word expansion of filename (e.g. tilde expands to home directory)
+    wordexp_t fname_exp;
+    if (wordexp(fname.c_str(), &fname_exp, 0) != 0) {
+      throw invalid_argument("Invalid filename: " + fname);
+    }
+    string path = fname_exp.we_wordv[0];
+    wordfree(&fname_exp);
+
+    bag_.open(path.c_str(), rosbag::bagmode::Read);
   }
 
   void mex(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[]) {
