@@ -179,6 +179,8 @@ mxArray* mexWrap<ROSMessage>(const ROSMessage &msg) {
     const string &type = msg.type().base_type;
     const vector<vector<uint8_t> > &bytes = msg.bytes();
     if (type == "bool")          { return mexWrap<bool>(bytes); }
+    else if (type == "byte")     { return mexWrap<int8_t>(bytes); }
+    else if (type == "char")     { return mexWrap<uint8_t>(bytes); }
     else if (type == "uint8")    { return mexWrap<uint8_t>(bytes); }
     else if (type == "uint16")   { return mexWrap<uint16_t>(bytes); }
     else if (type == "uint32")   { return mexWrap<uint32_t>(bytes); }

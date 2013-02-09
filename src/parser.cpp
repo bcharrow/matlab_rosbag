@@ -23,13 +23,13 @@ bool validFieldName(const std::string &ref) {
 
 map<string,int> init_builtins() {
   map<string,int> builtins;
-  const char *types[] = {"bool",
+  const char *types[] = {"bool", "byte", "char",
                          "uint8", "uint16", "uint32", "uint64",
                          "int8", "int16", "int32", "int64",
                          "float32", "float64",
                          "time", "duration",
                          "string"};
-  const int sizes[] = {1,
+  const int sizes[] = {1, 1, 1,
                        1, 2, 4, 8,
                        1, 2, 4, 8,
                        4, 8,
