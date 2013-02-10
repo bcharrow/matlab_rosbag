@@ -131,7 +131,12 @@ mxArray* mexWrap<ROSMessage>(const ROSMessage &m);
 
 template<>
 mxArray* mexWrap<ROSMessage::Field>(const ROSMessage::Field &field) {
-  if (field.at(0).type().is_builtin) {
+  // TODO: Should be able to create 1x0 struct with appropriate fields for
+  // arrays of empty messages.  Currently, this just checks if field has no
+  // entries in which case it returns empty, creating an empty array.
+  if (field.size() == 0) {
+    return NULL;
+  } else if (field.at(0).type().is_builtin) {
     if (field.size() != 1) {
       throw runtime_error("Shouldn't have multiple arrays of builtins");
     }
