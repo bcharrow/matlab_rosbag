@@ -38,6 +38,9 @@ public:
     Field(const std::string &n) : name(n) {}
     std::string name;
     ROSType type;
+    bool constant;     // True if field is a constant in message definition
+    std::string value; // If constant, value of field, else undefined
+    std::vector<uint8_t> bytes; // If constant, serialized version of value
   };
 
   ROSMessageFields() {}

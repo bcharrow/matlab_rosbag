@@ -98,6 +98,10 @@ TEST(ROSMessageFields, parse_quaternion_def) {
   EXPECT_EQ(string("y"), mt.at(1).name);
   EXPECT_EQ(string("z"), mt.at(2).name);
   EXPECT_EQ(string("w"), mt.at(3).name);
+  EXPECT_FALSE(mt.at(0).constant);
+  EXPECT_FALSE(mt.at(1).constant);
+  EXPECT_FALSE(mt.at(2).constant);
+  EXPECT_FALSE(mt.at(3).constant);
 }
 
 TEST(ROSMessageFields, parse_comments) {
@@ -116,10 +120,66 @@ TEST(ROSMessageFields, parse_comments) {
   EXPECT_EQ(string("float64"), mt.at(1).type.name);
   EXPECT_EQ(string("x"), mt.at(0).name);
   EXPECT_EQ(string("z"), mt.at(1).name);
+  EXPECT_FALSE(mt.at(0).constant);
+  EXPECT_FALSE(mt.at(1).constant);
 }
 
-TEST(ROSMessageFields, parse_pose_def) {
-  ROSMessageFields mt;
+TEST(ROSMessageFields, constant_uint8) {
+  ROSMessageFields fields;
+  string def("uint8 a = 1\n");
+  fields.populate(def);
+  ASSERT_EQ(1, fields.nfields());
+  EXPECT_EQ(string("a"), fields.at(0).name);
+  EXPECT_EQ(string("uint8"), fields.at(0).type.base_type);
+  EXPECT_TRUE(fields.at(0).constant);
+  EXPECT_EQ(string("1"), fields.at(0).value);
+  EXPECT_EQ(1, fields.at(0).bytes.size());
+  EXPECT_EQ(1, fields.at(0).bytes[0]);
+}
+
+TEST(ROSMessageFields, constant_string) {
+  ROSMessageFields fields;
+  string def("string msg = ab9\n");
+  fields.populate(def);
+  ASSERT_EQ(1, fields.nfields());
+  EXPECT_EQ(string("msg"), fields.at(0).name);
+  EXPECT_EQ(string("string"), fields.at(0).type.base_type);
+  EXPECT_TRUE(fields.at(0).constant);
+  EXPECT_EQ(string("ab9"), fields.at(0).value);
+
+  uint8_t bytes[] = {'a', 'b', '9'};
+  EXPECT_EQ(3, fields.at(0).bytes.size());
+  EXPECT_EQ(bytes[0], fields.at(0).bytes[0]);
+  EXPECT_EQ(bytes[1], fields.at(0).bytes[1]);
+  EXPECT_EQ(bytes[2], fields.at(0).bytes[2]);
+}
+
+TEST(ROSMessageFields, constant_comments) {
+  ROSMessageFields fields;
+  string def(
+"string str=  this string has a # comment in it  \n"
+"string str2 = this string has \"quotes\" and \\slashes\\ in it\n"
+"float64 a=64.0 # numeric comment\n");
+  fields.populate(def);
+  ASSERT_EQ(3, fields.nfields());
+  EXPECT_EQ(string("str"), fields.at(0).name);
+  EXPECT_EQ(string("string"), fields.at(0).type.base_type);
+  EXPECT_TRUE(fields.at(0).constant);
+  EXPECT_EQ(string("this string has a # comment in it"), fields.at(0).value);
+
+  EXPECT_EQ(string("str2"), fields.at(1).name);
+  EXPECT_EQ(string("string"), fields.at(1).type.base_type);
+  EXPECT_TRUE(fields.at(1).constant);
+  EXPECT_EQ(string("this string has \"quotes\" and \\slashes\\ in it"),
+            fields.at(1).value);
+
+  EXPECT_EQ(string("a"), fields.at(2).name);
+  EXPECT_EQ(string("float64"), fields.at(2).type.base_type);
+  EXPECT_TRUE(fields.at(2).constant);
+  EXPECT_EQ(string("64.0"), fields.at(2).value);
+}
+
+TEST(ROSTypeMap, parse_pose_def) {
   string
     def(
 "# A representation of pose in free space, composed of postion and orientation. \n"
@@ -158,7 +218,28 @@ TEST(ROSMessageFields, parse_pose_def) {
   EXPECT_EQ(3, type->nfields());
 }
 
-TEST(ROSMessage, single_string) {
+TEST(ROSTypeMap, constant) {
+  ROSTypeMap rtm;
+  string def("string constant = as\n\n");
+  rtm.populate(def);
+
+  const ROSMessageFields *msg_type;
+  ASSERT_TRUE((msg_type = rtm.getMsgFields(string("0-root"))) != NULL);
+  ROSMessage msg(msg_type->type());
+  msg.populate(rtm, NULL, 0);
+
+  const ROSMessage::Field &constant = msg.lookupField("constant");
+  EXPECT_EQ(1, constant.size());
+  EXPECT_EQ(1, constant.at(0).bytes().size());
+  const vector<uint8_t>& bytes = constant.at(0).bytes().at(0);
+  EXPECT_EQ(2, bytes.size());
+  EXPECT_EQ('a', bytes[0]);
+  EXPECT_EQ('s', bytes[1]);
+
+}
+
+
+TEST(ROSTypeMap, single_string) {
   ROSTypeMap rtm;
   string def("string test\n\n");
   rtm.populate(def);
@@ -178,7 +259,7 @@ TEST(ROSMessage, single_string) {
   EXPECT_EQ('i', test.at(0).bytes()[0][1]);
 }
 
-TEST(ROSMessage, varlen_array) {
+TEST(ROSTypeMap, varlen_array) {
   ROSTypeMap rtm;
   string def(
 "Point[] points\n"

@@ -6,20 +6,19 @@
 #include <boost/regex.hpp>
 #include <boost/algorithm/string/regex.hpp>
 
+#include <inttypes.h>
+
 using namespace std;
 
+static const char *g_type_regexp = ("[a-zA-Z][a-zA-Z1-9_]*"
+                                    "(/[a-zA-Z][a-zA-Z1-9_]*){0,1}"
+                                    "(\\[[0-9]*\\]){0,1}");
+static const char *g_field_regexp = "[a-zA-Z][a-zA-Z1-9_]*";
+
 bool validTypeName(const std::string &ref) {
-  static const boost::regex re("[a-zA-Z][a-zA-Z1-9_]*"
-                               "(/[a-zA-Z][a-zA-Z1-9_]*)??"
-                               "(\\[[0-9]*\\])??");
+  static const boost::regex re(g_type_regexp);
   return boost::regex_match(ref, re);
 }
-
-bool validFieldName(const std::string &ref) {
-  static const boost::regex re("[a-zA-Z][a-zA-Z1-9_]*");
-  return boost::regex_match(ref, re);
-}
-
 
 map<string,int> init_builtins() {
   map<string,int> builtins;
@@ -104,41 +103,168 @@ void ROSType::populate(const string &type_str) {
  *
  */
 vector<vector<string> > tokenize(const string &msg_def) {
-  static const boost::regex nonwhitespace_re("\\S+");
+  static const boost::regex type_re(g_type_regexp);
+  static const boost::regex field_re(g_field_regexp);
+  static const boost::regex word_re("\\S+");
   vector<vector<string> > lines;
-  vector<string> tokens;
   stringstream ss(msg_def);
   string line;
 
-  while (getline(ss, line, '\n')) {
-    boost::match_results<std::string::const_iterator> what;
+  boost::match_results<std::string::const_iterator> what;
+
+  // Read first line.  Should be of the form "MSG: <TYPE_NAME>"
+  if (string(msg_def.begin(), msg_def.begin() + 4) == "MSG:") {
+    getline(ss, line, '\n');
     string::const_iterator begin = line.begin(), end = line.end();
-    lines.push_back(vector<string>());
-    while (regex_search(begin, end, what, nonwhitespace_re)) {
-      begin = what[0].second;
-      if (string(what[0])[0] != '#') {
-        lines.back().push_back(what[0]);
-      } else {
-        break;
-      }
+    if (regex_search(begin + 4, end, what, type_re)) {
+      lines.push_back(vector<string>());
+      lines.back().push_back(what[0]);
+    } else {
+      throw invalid_argument("Expected ROS type after 'MSG:'\n" + msg_def);
+    }
+  }
+
+  // Read remaining lines to get fields
+  while (getline(ss, line, '\n')) {
+    string::const_iterator begin = line.begin(), end = line.end();
+
+    // Skip empty line or one that is a comment
+    if (regex_search(begin, end, what, boost::regex("(^\\s*$|^\\s*#)"))) {
+      continue;
     }
 
-    if (lines.back().size() == 0) {
-      lines.pop_back();
+    lines.push_back(vector<string>());
+
+    // Get type and field
+    string type, fieldname;
+    if (regex_search(begin, end, what, type_re)) {
+      type = what[0];
+      begin = what[0].second;
+    } else {
+      throw invalid_argument("Bad type when parsing message\n" + msg_def);
+    }
+
+    if (regex_search(begin, end, what, field_re)) {
+      fieldname = what[0];
+      begin = what[0].second;
+    } else {
+      throw invalid_argument("Bad field when parsing message\n" + msg_def);
+    }
+
+    lines.back().push_back(type);
+    lines.back().push_back(fieldname);
+
+    // Determine next character
+    // if '=' -> constant, if '#' -> done, if nothing -> done, otherwise error
+    if (regex_search(begin, end, what, boost::regex("\\S"))) {
+      if (what[0] == "=") {
+        begin = what[0].second;
+        // Copy constant
+        string value;
+        if (type == "string") {
+          value.assign(begin, end);
+        } else {
+          if (regex_search(begin, end, what, boost::regex("\\s*#"))) {
+            value.assign(begin, what[0].first);
+          } else {
+            value.assign(begin, end);
+          }
+          // TODO: Raise error if string is not numeric
+        }
+
+        boost::algorithm::trim(value);
+        lines.back().push_back(value);
+      } else if (what[0] == "#") {
+        // Ignore comment
+      } else {
+        // Error
+        throw invalid_argument("Unexpected character after type and field '" +
+                               string(begin, end) + "':\n" + msg_def);
+      }
     }
   }
   return lines;
 }
 
+// Convert a string representing the value of a constant to bytes
+// TODO: Change this so it works on big endian machines
+template <typename T>
+bool serialize(const string &str_value, vector<uint8_t> *bytes) {
+  istringstream ss(str_value);
+  T val;
+  bool result = ss >> val;
+  if (!result) {
+    return false;
+  }
+  uint8_t *val_bytes = reinterpret_cast<uint8_t*>(&val);
+  bytes->assign(val_bytes, val_bytes + bytes->size());
+  return true;
+}
+
+template<>
+bool serialize<uint8_t>(const string &str_value, vector<uint8_t> *bytes) {
+  istringstream ss(str_value);
+  uint16_t val_16;
+  bool result = ss >> val_16;
+  if (!result) {
+    return false;
+  }
+  uint8_t val = val_16;
+  uint8_t *val_bytes = reinterpret_cast<uint8_t*>(&val);
+  bytes->assign(val_bytes, val_bytes + bytes->size());
+  return true;
+}
+
+template<>
+bool serialize<int8_t>(const string &str_value, vector<uint8_t> *bytes) {
+  istringstream ss(str_value);
+  int16_t val_16;
+  bool result = ss >> val_16;
+  if (!result) {
+    return false;
+  }
+  int8_t val = val_16;
+  uint8_t *val_bytes = reinterpret_cast<uint8_t*>(&val);
+  bytes->assign(val_bytes, val_bytes + bytes->size());
+  return true;
+}
+
+// Convert the value represented by "val" of type "type" into "bytes".
+bool serialize_constant(const ROSType &type, const string &val,
+                        vector<uint8_t> *bytes) {
+  if (type.name == "string") {
+    bytes->resize(val.size());
+    copy(val.begin(), val.end(), bytes->begin());
+    return true;
+  } else {
+    istringstream ss(val);
+    bytes->resize(type.type_size);
+
+    bool result = false;
+    if (type.name == "bool") { result = serialize<bool>(val, bytes); }
+    else if (type.name == "byte") { result = serialize<int8_t>(val, bytes); }
+    else if (type.name == "char") { result = serialize<uint8_t>(val, bytes); }
+    else if (type.name == "uint8") { result = serialize<uint8_t>(val, bytes); }
+    else if (type.name == "uint16") { result = serialize<uint16_t>(val, bytes); }
+    else if (type.name == "uint32") { result = serialize<uint32_t>(val, bytes); }
+    else if (type.name == "uint64") { result = serialize<uint64_t>(val, bytes); }
+    else if (type.name == "int8") { result = serialize<int8_t>(val, bytes); }
+    else if (type.name == "int16") { result = serialize<int16_t>(val, bytes); }
+    else if (type.name == "int32") { result = serialize<int32_t>(val, bytes); }
+    else if (type.name == "int64") { result = serialize<int64_t>(val, bytes); }
+    else if (type.name == "float32") { result = serialize<float>(val, bytes); }
+    else if (type.name == "float64") { result = serialize<double>(val, bytes); }
+    else { result = false; }
+
+    return result;
+  }
+}
+
 void ROSMessageFields::populate(const string &msg_def) {
   vector<vector<string> > lines = tokenize(msg_def);
-
   int start_ind = 0;
-  if (lines.at(0).at(0) == "MSG:") {
-    if (lines.at(0).size() != 2 || !validTypeName(lines.at(0).at(1))) {
-      throw invalid_argument("Invalid header in message def:\n" + msg_def);
-    }
-    type_.populate(lines.at(0).at(1));
+  if (lines.at(0).size() == 1) {
+    type_.populate(lines.at(0).at(0));
     start_ind = 1;
   } else {
     type_.name = "0-root";
@@ -152,22 +278,30 @@ void ROSMessageFields::populate(const string &msg_def) {
   }
 
   for (size_t l = start_ind; l < lines.size(); ++l) {
-    const vector<string> toks = lines[l];
-    if (toks.size() != 2) {
-      stringstream ss;
-      ss << toks.size() << " tokens on line " << l << ":\n" << msg_def;
-      throw invalid_argument(string(ss.str()));
+    const vector<string> &toks = lines[l];
+    if (toks.size() != 2 && toks.size() != 3) {
+      throw runtime_error("Bad parsing of msg_def:\n" + msg_def);
     }
-    // Check that the first two tokens are valid
     const std::string &type = toks.at(0);
     const std::string &name = toks.at(1);
-    if (!validFieldName(name)) {
-      throw invalid_argument("Bad field '" + name + "':\n" + msg_def);
-    } else if (!validTypeName(type)) {
-      throw invalid_argument("Bad type '" + type + "' :\n" + msg_def);
+    fields_.push_back(Field(name));
+    Field &field = fields_.back();
+
+    field.type.populate(type);
+    if (toks.size() == 3) {
+      if (!field.type.is_builtin || field.type.is_array ||
+          field.type.name == "time" || field.type.name == "duration") {
+        throw invalid_argument("Invalid constant for " + field.name + ":\n" +
+                               msg_def);
+      }
+      field.constant = true;
+      field.value = toks.at(2);
+      if (!serialize_constant(field.type, field.value, &(field.bytes))) {
+        throw invalid_argument("Invalid constant value:\n" + msg_def);
+      }
     } else {
-      fields_.push_back(Field(name));
-      fields_.back().type.populate(type);
+      field.constant = false;
+      field.value = "";
     }
   }
 }
@@ -309,11 +443,20 @@ void ROSMessage::populate(const ROSTypeMap &types, const uint8_t *bytes, int *be
 
       ROSMessage::Field *field = new ROSMessage::Field(rmf.name);
       fields_.push_back(field);
-      for (int array_ind = 0; array_ind < array_len; ++array_ind) {
+
+      // If field is not a constant, recursively populate it.  Otherwise
+      // serialize the constant's value to bytes
+      if (!rmf.constant) {
+        for (int array_ind = 0; array_ind < array_len; ++array_ind) {
+          ROSMessage *msg = new ROSMessage(rmf.type);
+          field->values_.push_back(msg);
+          // If populate throws, msg will be freed as it's in fields_
+          msg->populate(types, bytes, beg);
+        }
+      } else {
         ROSMessage *msg = new ROSMessage(rmf.type);
+        msg->bytes_.push_back(rmf.bytes);
         field->values_.push_back(msg);
-        // If populate throws, msg will be freed as it's in fields_
-        msg->populate(types, bytes, beg);
       }
     }
   }
