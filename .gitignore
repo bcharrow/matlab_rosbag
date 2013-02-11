@@ -4,7 +4,7 @@
 *.d
 *.o
 *.so
-*.mexa64
+*.mexmaci64
 ROS_NOBUILD
 
 build
