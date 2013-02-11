@@ -415,18 +415,18 @@ void ROSMessage::populate(const ROSTypeMap &types, const uint8_t *bytes, int *be
       array_len = read_uint32(bytes, beg);
     }
 
-    for (int array_ind = 0; array_ind < array_len; ++array_ind) {
-      int elem_size = type_.type_size;
-      if (elem_size == -1) {
-        elem_size = read_uint32(bytes, beg);
+    if (type_.type_size == -1) {
+      for (int array_ind = 0; array_ind < array_len; ++array_ind) {
+        int elem_size = read_uint32(bytes, beg);
+        bytes_.push_back(std::vector<uint8_t>(elem_size));
+        copy(bytes + *beg, bytes + *beg + elem_size, bytes_.back().begin());
+        *beg += elem_size;
       }
-
-      bytes_.push_back(std::vector<uint8_t>(elem_size));
-      std::vector<uint8_t> &element = bytes_.back();
-      for (size_t i = 0; i < element.size(); ++i) {
-        element[i] = bytes[*beg + i];
-      }
-      *beg += elem_size;
+    } else {
+      size_t ttl_sz = type_.type_size * array_len;
+      bytes_.push_back(std::vector<uint8_t>(ttl_sz));
+      copy(bytes + *beg, bytes + *beg + ttl_sz, bytes_.back().begin());
+      *beg += ttl_sz;
     }
   } else {
     const ROSMessageFields *rmfs = types.getMsgFields(type_.base_type);

@@ -24,16 +24,15 @@ using namespace std;
   template<> mxArray*                                                   \
   mexWrap<CPP_TYPE, vector<vector<uint8_t> > >                          \
   (const vector<vector<uint8_t> > &b) {                                 \
-    mxArray *result = mxCreateNumericMatrix(1, b.size(),                \
-                                            MATLAB_TYPE, mxREAL);       \
-    int8_t *data = static_cast<int8_t*>(mxGetData(result));             \
-    for (int i = 0; i < b.size(); ++i) {                                \
-      if (sizeof(CPP_TYPE) != b[i].size()) {                            \
-        throw runtime_error("bad size");                                \
-      }                                                                 \
-      copy(b[i].begin(), b[i].end(),                                    \
-           data + i * sizeof(CPP_TYPE));                                \
+    const vector<uint8_t> &bytes = b.back();                            \
+    if (bytes.size() % sizeof(CPP_TYPE) != 0) {                         \
+      throw runtime_error("bad size");                                  \
     }                                                                   \
+    size_t n_elem = bytes.size() / sizeof(CPP_TYPE);                    \
+    mxArray *result = mxCreateNumericMatrix(1, n_elem,                  \
+                                            MATLAB_TYPE, mxREAL);       \
+    uint8_t *data = static_cast<uint8_t*>(mxGetData(result));           \
+    copy(bytes.begin(), bytes.end(), data);                             \
     return result;                                                      \
   }
 
