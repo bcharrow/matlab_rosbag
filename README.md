@@ -4,9 +4,9 @@ matlab_rosbag is a library for reading ROS bags in Matlab.  It uses the C++ ROS 
 
 Building things requires some work and so I recommend you download a precompiled version of the code:
 
-<b>Version 0.1</b>
- - Download [Mac OS X 64-bit](http://www.seas.upenn.edu/~bcharrow/media/code/matlab_rosbag-0.1-mac64.zip)
- - Download [Linux 64-bit](http://www.seas.upenn.edu/~bcharrow/media/code/matlab_rosbag-0.1-linux64.zip)
+<b>Version 0.2</b>
+ - Download [Mac OS X 64-bit](http://www.seas.upenn.edu/~bcharrow/media/code/matlab_rosbag-0.2-mac64.zip)
+ - Download [Linux 64-bit](http://www.seas.upenn.edu/~bcharrow/media/code/matlab_rosbag-0.2-linux64.zip)
 
 If you want to compile things yourself see <tt>COMPILING.md</tt>.  WARNING: This code won't work at all if your machine is big-endian.
 
