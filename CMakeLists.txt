@@ -1,31 +1,18 @@
-cmake_minimum_required(VERSION 2.4.6)
-include($ENV{ROS_ROOT}/core/rosbuild/rosbuild.cmake)
+cmake_minimum_required(VERSION 2.8.3)
+project(matlab_rosbag)
+find_package(catkin REQUIRED COMPONENTS rosbag)
 
-# Set the build type.  Options are:
-#  Coverage       : w/ debug symbols, w/o optimization, w/ code-coverage
-#  Debug          : w/ debug symbols, w/o optimization
-#  Release        : w/o debug symbols, w/ optimization
-#  RelWithDebInfo : w/ debug symbols, w/ optimization
-#  MinSizeRel     : w/o debug symbols, w/ optimization, stripped binaries
-#set(ROS_BUILD_TYPE RelWithDebInfo)
+catkin_package(CATKIN_DEPENDS
+  rosbag rostime roscpp_serialization roscpp)
 
-rosbuild_init()
+include_directories(${catkin_INCLUDE_DIRS})
 
-#set the default path for built executables to the "bin" directory
-set(EXECUTABLE_OUTPUT_PATH ${PROJECT_SOURCE_DIR}/bin)
-#set the default path for built libraries to the "lib" directory
-set(LIBRARY_OUTPUT_PATH ${PROJECT_SOURCE_DIR}/lib)
+find_package(Boost REQUIRED COMPONENTS regex)
 
-#uncomment if you have defined messages
-#rosbuild_genmsg()
-#uncomment if you have defined services
-#rosbuild_gensrv()
+add_library(matlab_rosbag src/parser.cpp)
 
-#common commands for building c++ executables and libraries
-rosbuild_add_executable(read_bag_test src/read_bag_test.cpp)
-rosbuild_add_library(matlabbag src/parser.cpp)
-target_link_libraries(read_bag_test matlabbag)
-rosbuild_link_boost(matlabbag regex)
+add_executable(read_bag_test src/read_bag_test.cpp)
+target_link_libraries(read_bag_test matlab_rosbag ${catkin_LIBRARIES})
 
-rosbuild_add_gtest(parser_test src/parser_test.cpp)
-target_link_libraries(parser_test matlabbag)
+catkin_add_gtest(parser_test src/parser_test.cpp)
+target_link_libraries(parser_test matlab_rosbag)
