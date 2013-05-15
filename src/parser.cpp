@@ -196,8 +196,8 @@ template <typename T>
 bool serialize(const string &str_value, vector<uint8_t> *bytes) {
   istringstream ss(str_value);
   T val;
-  bool result = ss >> val;
-  if (!result) {
+  ss >> val;
+  if (ss.bad() || ss.fail() || !ss.eof()) {
     return false;
   }
   uint8_t *val_bytes = reinterpret_cast<uint8_t*>(&val);
@@ -209,8 +209,8 @@ template<>
 bool serialize<uint8_t>(const string &str_value, vector<uint8_t> *bytes) {
   istringstream ss(str_value);
   uint16_t val_16;
-  bool result = ss >> val_16;
-  if (!result) {
+  ss >> val_16;
+  if (ss.bad() || ss.fail() || !ss.eof()) {
     return false;
   }
   uint8_t val = val_16;
@@ -223,8 +223,8 @@ template<>
 bool serialize<int8_t>(const string &str_value, vector<uint8_t> *bytes) {
   istringstream ss(str_value);
   int16_t val_16;
-  bool result = ss >> val_16;
-  if (!result) {
+  ss >> val_16;
+  if (ss.bad() || ss.fail() || !ss.eof()) {
     return false;
   }
   int8_t val = val_16;
