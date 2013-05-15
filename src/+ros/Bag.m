@@ -1,5 +1,5 @@
 classdef Bag
-    % Bag A class for reading data from ROS bags.        
+    % Bag A class for reading data from ROS bags.
     properties
         handle = -1;
         cleanup = @(x) x;
@@ -21,7 +21,7 @@ classdef Bag
         end
 
         function [] = resetView(obj, topics)
-        % resetView Reset which topics to read messages from
+        % Reset which topics to read messages from
         %
         % resetView(topics) jumps to the beginning of the bagfile and changes
         % the view to be topics.  topics can be a string or a cell array of
@@ -30,12 +30,13 @@ classdef Bag
         end
 
         function [hn] = hasNext(obj)
-        % hasNext Return true if there is at least one more message to read
+        % Return true if there is at least one more message to read
+        % [hn] = hasNext()
             hn = rosbag_wrapper(obj.handle, 'hasNext');
         end
 
         function [msg, meta] = readMessage(obj)
-        % readMessage Read a message from the bag
+        % Read a message from the bag
         % [MSG] = readMessage() gets the next message from the bag
         %
         % [MSG, META] = readMessage() gets the next message and return meta
@@ -48,7 +49,7 @@ classdef Bag
         end
 
         function [msg, meta] = readAllMessages(obj, topics)
-        % readAllMessages Read remaining messages from the bag
+        % Read remaining messages from the bag
         % [MSG] = readAllMessages() returns all messages from the current
         % point on as a cell array.
         %
