@@ -66,5 +66,29 @@ classdef Bag
                 [msg, meta] = rosbag_wrapper(obj.handle, 'readAllMessages', true);
             end
         end
+
+        function [info] = info(obj)
+        % Get information about the bag's contents (similar to 'rosbag info')
+        % [INFO] = info()
+            info = rosbag_wrapper(obj.handle, 'info');
+        end
+
+        function [defn] = definition(obj, msg_type)
+        % Get a string describing fields in a message (similar to 'rosmsg show')
+        %
+        % [msg_def] = definition(msg_type) where msg_type is a ROS message type
+        % (e.g., 'geometry_msgs/Vector3').  Also works if msg_type is
+        % unqualified (e.g., 'Vector3').
+            defn = rosbag_wrapper(obj.handle, 'definition', msg_type);
+        end
+
+        function [raw_defn] = rawDefinition(obj, msg_type)
+        % Get a message's raw definition (similar to 'rosmsg show --raw')
+        %
+        % [msg_def] = rawDefinition(msg_type) where msg_type is a ROS message
+        % type (e.g., 'geometry_msgs/Vector3').  Also works if msg_type is
+        % unqualified (e.g., 'Vector3').
+            raw_defn = rosbag_wrapper(obj.handle, 'rawDefinition', msg_type);
+        end
     end
 end

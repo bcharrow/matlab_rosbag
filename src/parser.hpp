@@ -6,9 +6,10 @@
 #include <map>
 
 #include <boost/scoped_array.hpp>
+#include <boost/scoped_ptr.hpp>
 
-#include <ros/ros.h>
 #include <rosbag/bag.h>
+#include <rosbag/view.h>
 
 struct ROSType {
   ROSType() {}
@@ -64,11 +65,12 @@ public:
   ~ROSTypeMap();
 
   void populate(const std::string &msg_def);
+  std::vector<std::string> resolve(const std::string &type) const;
 
   const ROSMessageFields* getMsgFields(const std::string &msg_type) const;
 
 private:
-  std::map<std::string, std::vector<std::string> > resolver_;
+  mutable std::map<std::string, std::vector<std::string> > resolver_;
   mutable std::map<std::string, ROSMessageFields*> type_map_;
 };
 
@@ -122,5 +124,47 @@ private:
   std::map<std::string, ROSTypeMap*> type_maps_;
   boost::scoped_array<uint8_t> bytes_;
 };
+
+class BagInfo {
+public:
+  BagInfo() : bag_(NULL), view_(NULL) {};
+  ~BagInfo();
+
+  // Populate info from a bag; bag must be valid as long as BagInfo is in use
+  void setBag(const rosbag::Bag *bag);
+
+  // Get a string summarizing the contents of the bag.  Outputs most of the
+  // information found in "rosbag info"
+  std::string info();
+  std::string rawDefinition(const std::string &msg_type) const;
+  std::string definition(const std::string &msg_type) const;
+
+private:
+  struct TopicSummary {
+    std::string topic;
+    std::string type;
+    size_t size;
+    size_t nconnections;
+  };
+
+  // Get a nicely formatted string describing all TopicSummarys
+  std::vector<std::string> formatSummaries(const std::vector<TopicSummary> &topics);
+  // Populate raw_msg_defs_ using the connections
+  void readRawMsgDefs(const std::vector<const rosbag::ConnectionInfo*> &conns);
+  // Populate type_maps_ using the connections
+  void readTypeMaps(const std::vector<const rosbag::ConnectionInfo*> &conns);
+
+  const rosbag::Bag *bag_;
+  boost::scoped_ptr<rosbag::View> view_;
+
+  // Map from message type to raw message definition. The keys includes both
+  // qualified names and unqualified names.
+  std::map<std::string, std::string> msg_defs_;
+  std::map<std::string, ROSTypeMap*> type_maps_;
+};
+
+// Get a string which describes the message (basically "rosmsg show")
+std::string msg_definition(const ROSTypeMap &tm);
+std::string msg_definition(const ROSMessageFields *rmf, const ROSTypeMap &tm);
 
 #endif

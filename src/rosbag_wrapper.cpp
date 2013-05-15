@@ -7,7 +7,6 @@
 
 #include <boost/scoped_ptr.hpp>
 
-#include <ros/ros.h>
 #include <rosbag/bag.h>
 #include <rosbag/view.h>
 
@@ -216,6 +215,7 @@ public:
     wordfree(&fname_exp);
 
     bag_.open(path.c_str(), rosbag::bagmode::Read);
+    info_.setBag(&bag_);
   }
 
   void mex(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[]) {
@@ -245,6 +245,14 @@ public:
       }
     } else if (cmd == "hasNext") {
       plhs[0] = mexWrap<bool>(hasNext());
+    } else if (cmd == "info") {
+      plhs[0] = mexWrap<string>(info_.info());
+    } else if (cmd == "rawDefinition") {
+      string msg_type = mexUnwrap<string>(prhs[1]);
+      plhs[0] = mexWrap<string>(info_.rawDefinition(msg_type));
+    } else if (cmd == "definition") {
+      string msg_type = mexUnwrap<string>(prhs[1]);
+      plhs[0] = mexWrap<string>(info_.definition(msg_type));
     } else {
       throw invalid_argument("ROSBagWrapper::mex() Unknown method");
     }
@@ -309,6 +317,7 @@ public:
 private:
   string path_;
   rosbag::Bag bag_;
+  BagInfo info_;
   boost::scoped_ptr<rosbag::View> view_;
   rosbag::View::iterator iter_;
   BagDeserializer deser_;

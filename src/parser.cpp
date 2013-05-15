@@ -1,10 +1,13 @@
 #include "parser.hpp"
 
+#include <rosbag/view.h>
+
 #include <algorithm>
 
 #include <boost/algorithm/string.hpp>
 #include <boost/regex.hpp>
 #include <boost/algorithm/string/regex.hpp>
+#include <boost/date_time/posix_time/posix_time.hpp>
 
 #include <inttypes.h>
 
@@ -14,6 +17,7 @@ static const char *g_type_regexp = ("[a-zA-Z][a-zA-Z1-9_]*"
                                     "(/[a-zA-Z][a-zA-Z1-9_]*){0,1}"
                                     "(\\[[0-9]*\\]){0,1}");
 static const char *g_field_regexp = "[a-zA-Z][a-zA-Z1-9_]*";
+static const char* g_message_split_regexp = "^=+\\n+";
 
 bool validTypeName(const std::string &ref) {
   static const boost::regex re(g_type_regexp);
@@ -325,7 +329,7 @@ ROSTypeMap::~ROSTypeMap() {
 void ROSTypeMap::populate(const string &msg_def) {
   // Split into disparate message type definitions
   std::vector<std::string> split;
-  boost::regex msg_sep_re("=+\\n+");
+  boost::regex msg_sep_re(g_message_split_regexp);
   boost::split_regex(split, msg_def, msg_sep_re);
 
   // Parse individual message types and make map from msg_name -> qualified name
@@ -374,6 +378,14 @@ const ROSMessageFields* ROSTypeMap::getMsgFields(const string &msg_type) const {
     return type_map_[msg_type];
   } else {
     return NULL;
+  }
+}
+
+vector<string> ROSTypeMap::resolve(const std::string &type) const {
+  if (resolver_.count(type) != 0) {
+    return resolver_[type];
+  } else {
+    return vector<string>();
   }
 }
 
@@ -513,4 +525,352 @@ ROSMessage* BagDeserializer::CreateMessage(const rosbag::MessageInstance &m) {
   }
 
   return msg;
+}
+
+//================================= BagInfo =================================//
+
+BagInfo::~BagInfo() {
+  for (map<string, ROSTypeMap*>::iterator it = type_maps_.begin();
+       it != type_maps_.end(); ++it) {
+    delete it->second;
+  }
+
+}
+
+// Format pairs of strings using a format string.  fmt is given (maxlen, first,
+// second) where first and second are elements of a pair and maxlen is the size
+// of the longest first element.
+template<typename ForwardIterator>
+vector<string> join(ForwardIterator begin, ForwardIterator end,
+                    const char* fmt) {
+  static char s[512];
+  vector<string> joined;
+  int maxlen = -1;
+  for (ForwardIterator it = begin; it != end; ++it) {
+    maxlen = max(maxlen, static_cast<int>(it->first.size()));
+  }
+  if (maxlen != -1) {
+    for (ForwardIterator it = begin; it != end; ++it) {
+      snprintf(s, sizeof(s), fmt,
+               maxlen, it->first.c_str(), it->second.c_str());
+      joined.push_back(string(s));
+    }
+  }
+  return joined;
+}
+
+string human_size(double size) {
+  const char *units[] = {"B", "KB", "MB", "GB", "TB", "PB"};
+  int ind = 0;
+  while (size > 1024.0 && ind + 1 < sizeof(units) / sizeof(units[0])) {
+    size /= 1024.0;
+    ++ind;
+  }
+  char s[80];
+  snprintf(s, sizeof(s) / sizeof(s[0]), "%.1f %s", size, units[ind]);
+  return string(s);
+}
+
+string duration_string(const ros::Duration &d) {
+  char buf[40];
+  boost::posix_time::time_duration td = d.toBoost();
+
+  if (td.hours() > 0) {
+    snprintf(buf, sizeof(buf) / sizeof(buf[0]), "%dhr %d:%02ds (%ds)",
+             td.hours(), td.minutes(), td.seconds(), td.total_seconds());
+  } else if (td.minutes() > 0) {
+    snprintf(buf, sizeof(buf) / sizeof(buf[0]), "%d:%02ds (%ds)",
+             td.minutes(), td.seconds(), td.total_seconds());
+  } else {
+    snprintf(buf, sizeof(buf) / sizeof(buf[0]), "%.1fs", d.toSec());
+  }
+  return string(buf);
+}
+
+string time_string(const ros::Time &rtime) {
+  char s[60];
+  const int buflen = sizeof(s) / sizeof(s[0]);
+  time_t t = rtime.sec;
+  tm *tm_time = localtime(&t);
+  size_t len = strftime(s, buflen, "%b %d %Y %H:%M:%S", tm_time);
+  if (len == 0) {
+    return string("ERROR MAKING DATE!");
+  } else {
+    if (len < buflen - 1) {
+      snprintf(s + len, buflen - len, ".%d (%0.2f)",
+               (int)round(rtime.nsec / 10000000.0), rtime.toSec());
+    }
+    return string(s);
+  }
+}
+
+string BagInfo::info() {
+  vector<pair<string, string> > rows;
+  rows.push_back(make_pair("path:", bag_->getFileName()));
+
+  stringstream ss;
+  ss << bag_->getMajorVersion() << "." << bag_->getMinorVersion();
+  rows.push_back(make_pair("version:", ss.str()));
+
+  // Don't populate time fields if no messages are present
+  if (view_->size() > 0) {
+    ros::Duration d = view_->getEndTime() - view_->getBeginTime();
+    rows.push_back(make_pair("duration:", duration_string(d)));
+    rows.push_back(make_pair("start:", time_string(view_->getBeginTime())));
+    rows.push_back(make_pair("end:", time_string(view_->getEndTime())));
+  }
+
+  rows.push_back(make_pair("size:", human_size(bag_->getSize())));
+
+  ss.str("");
+  ss.clear();
+  ss << view_->size();
+  rows.push_back(make_pair("messages:", ss.str()));
+
+  // Types + topics
+  vector<const rosbag::ConnectionInfo*> connections = view_->getConnections();
+  map<string, vector<const rosbag::ConnectionInfo*> > topic_conns;
+  for (int i = 0; i < connections.size(); ++i) {
+    const rosbag::ConnectionInfo* ci = connections[i];
+    topic_conns[ci->topic].push_back(ci);
+  }
+
+  if (topic_conns.size() > 0) {
+    set<pair<string, string> > type_md5s;
+    vector<TopicSummary> topics;
+
+    map<string, vector<const rosbag::ConnectionInfo*> >::iterator it;
+    for (it = topic_conns.begin(); it != topic_conns.end(); ++it) {
+      const rosbag::ConnectionInfo *ci = it->second.at(0);
+      type_md5s.insert(make_pair(ci->datatype, ci->md5sum));
+
+      vector<string> topic;
+      topic.push_back(ci->topic);
+      rosbag::View topicview(*bag_, rosbag::TopicQuery(topic));
+      TopicSummary summary;
+      summary.topic = ci->topic;
+      summary.type = ci->datatype;
+      summary.size = topicview.size();
+      summary.nconnections = it->second.size();
+      topics.push_back(summary);
+    }
+
+    // Type stanza
+    vector<string> types = join(type_md5s.begin(), type_md5s.end(),
+                                "%-*s [%s]");
+    rows.push_back(make_pair("types:", types[0]));
+    for (int i = 1; i < types.size(); ++i) {
+      rows.push_back(make_pair("", types[i]));
+    }
+
+    // Topic stanza
+    vector<string> topic_summary = formatSummaries(topics);
+    rows.push_back(make_pair("topics:", topic_summary[0]));
+    for (int i = 1; i < topics.size(); ++i) {
+      rows.push_back(make_pair("", topic_summary[i]));
+    }
+  }
+
+  ss.str("");
+  ss.clear();
+  vector<string> joined = join(rows.begin(), rows.end(), "%-*s %s");
+  for (int i = 0; i < joined.size(); ++i) {
+    ss << joined[i] << endl;
+  }
+  return ss.str();
+}
+
+void BagInfo::setBag(const rosbag::Bag *bag) {
+  bag_ = bag;
+  view_.reset(new rosbag::View(*bag_));
+
+  msg_defs_.clear();
+  type_maps_.clear();
+
+  vector<const rosbag::ConnectionInfo*> connections = view_->getConnections();
+  readRawMsgDefs(connections);
+  readTypeMaps(connections);
+}
+
+void BagInfo::readRawMsgDefs(const vector<const rosbag::ConnectionInfo*> &connections) {
+  for (int i = 0; i < connections.size(); ++i) {
+    const rosbag::ConnectionInfo *ci = connections.at(i);
+
+    if (msg_defs_.count(ci->datatype) == 0) {
+      const boost::regex msg_sep_re(g_message_split_regexp);
+      vector<string> split;
+      boost::split_regex(split, ci->msg_def, msg_sep_re);
+      ROSMessageFields rmf;
+      boost::trim(split.at(0));
+
+      ROSType type;
+      type.populate(ci->datatype);
+      // Add mapping from fully qualified type
+      msg_defs_[type.base_type] = split.at(0);
+      // Add mapping from name (i.e., no package)
+      msg_defs_[type.msg_name] = "MSG: " + ci->datatype + "\n" + split.at(0);
+      for (size_t i = 1; i < split.size(); ++i) {
+        rmf.populate(split.at(i));
+        size_t first_newline = split.at(i).find('\n');
+        if (first_newline == string::npos) {
+          throw invalid_argument(split.at(i));
+        }
+        string msg_def = split.at(i).substr(first_newline);
+        boost::trim(msg_def);
+        // Add mapping from fully qualified type
+        msg_defs_[rmf.type().base_type] = msg_def;
+        // Add mapping from name (i.e., no package)
+        boost::trim(split.at(i));
+        msg_defs_[rmf.type().msg_name] = split.at(i);
+      }
+    }
+  }
+}
+
+void BagInfo::readTypeMaps(const vector<const rosbag::ConnectionInfo*> &connections) {
+  set<string> seen;
+  for (int i = 0; i < connections.size(); ++i) {
+    const rosbag::ConnectionInfo *ci = connections.at(i);
+    if (seen.count(ci->datatype) == 0) {
+      seen.insert(ci->datatype);
+      ROSTypeMap *rtm = new ROSTypeMap();
+      type_maps_[ci->datatype] = rtm;
+      try {
+        rtm->populate(ci->msg_def);
+      } catch (exception &e) {
+        for (map<string, ROSTypeMap*>::iterator it = type_maps_.begin();
+             it != type_maps_.end(); ++it) {
+          delete it->second;
+        }
+        throw;
+      }
+    }
+  }
+}
+
+string BagInfo::rawDefinition(const std::string &msg_type) const {
+  stringstream ss;
+  map<string, string>::const_iterator it = msg_defs_.find(msg_type);
+  if (it == msg_defs_.end()) {
+    throw invalid_argument("No message definition for '" + msg_type + "' found");
+  }
+  return it->second;
+}
+
+vector<string> BagInfo::formatSummaries(const vector<TopicSummary> &topics) {
+  size_t max_size = 0, max_topiclen = 0, max_typelen = 0;
+  for (int i = 0; i < topics.size(); ++i) {
+    const TopicSummary &ts = topics[i];
+    stringstream ss;
+    ss << ts.size;
+    max_size = max(max_size, ss.str().size());
+    max_topiclen = max(max_topiclen, ts.topic.size());
+    max_typelen = max(max_typelen, ts.type.size());
+  }
+
+  vector<string> topic_summary;
+  char s[512];
+  const int bufsize = sizeof(s) / sizeof(s[0]);
+  const char *msg = "msg";
+  const char *msgs = "msgs";
+  for (int i = 0; i < topics.size(); ++i) {
+    const TopicSummary &ts = topics[i];
+    int len = snprintf(s, bufsize, "%-*s  %*zu %-4s  : %-*s",
+                       (int)max_topiclen, ts.topic.c_str(),
+                       (int)max_size, ts.size, ts.size > 1 ? msgs : msg,
+                       (int)max_typelen, ts.type.c_str());
+    if (len < 0) {
+      topic_summary.push_back("Problem summarizing topic!");
+    } else {
+      if (ts.nconnections > 1 && len < bufsize - 1) {
+        snprintf(s + len, bufsize - len, " (%zu connections)",
+                 ts.nconnections);
+      }
+      topic_summary.push_back(string(s));
+    }
+  }
+  return topic_summary;
+}
+
+string BagInfo::definition(const std::string &msg_type) const {
+  ROSType type;
+  type.populate(msg_type);
+  string resolved_type;
+
+  map<string, ROSTypeMap*>::const_iterator it;
+  string msg_def;
+  // Resolve name to absolute message type; just take first name that matches
+  if (type.is_qualified) {
+    resolved_type = type.base_type;
+  } else {
+    for (it = type_maps_.begin(); it != type_maps_.end(); ++it) {
+      // Check if type is defined in the message definition or it's the root
+      // type of the type map
+      vector<string> pkg_names = it->second->resolve(type.base_type);
+      string subtype = it->first.substr(it->first.find("/") + 1);
+      if (pkg_names.size() != 0) {
+        resolved_type = pkg_names.at(0) + "/" + type.base_type;
+        msg_def = "MSG: " + resolved_type + "\n";
+        break;
+      } else if (subtype == type.base_type) {
+        resolved_type = it->first;
+        msg_def = "MSG: " + resolved_type + "\n";
+        break;
+      }
+    }
+    if (it == type_maps_.end()) {
+      throw invalid_argument("Couldn't find message definition");
+    }
+  }
+
+  // Now that type is guaranteed to be resolved, lookup message definition
+  it = type_maps_.find(resolved_type);
+  if (it != type_maps_.end()) {
+    return msg_def + msg_definition(*it->second);
+  } else {
+    for (map<string, ROSTypeMap*>::const_iterator it = type_maps_.begin();
+         it != type_maps_.end(); ++it) {
+        const ROSMessageFields *rmf = it->second->getMsgFields(resolved_type);
+        if (rmf != NULL) {
+          return msg_def + msg_definition(rmf, *it->second);
+        }
+    }
+    throw invalid_argument("Couldn't find message definition");
+  }
+}
+
+//============================= msg_definition ==============================//
+
+void msg_definition_helper(const ROSMessageFields *rmf, const ROSTypeMap &rtm,
+                           int indent, stringstream *ss) {
+  string spacer(indent, ' ');
+  for (int i = 0; i < rmf->nfields(); ++i) {
+    const ROSMessageFields::Field &field = rmf->at(i);
+    stringstream type;
+    type << field.type.base_type;
+    if (field.type.is_array) {
+      type << "[";
+      if (field.type.array_size != -1) {
+        type << field.type.array_size;
+      }
+      type << "]";
+    }
+    (*ss) << spacer << type.str() << " " << field.name << endl;
+    if (!field.type.is_builtin) {
+      msg_definition_helper(rtm.getMsgFields(field.type.base_type), rtm,
+                            indent + 2, ss);
+    }
+  }
+}
+
+string msg_definition(const ROSTypeMap &tm) {
+  stringstream ss;
+  msg_definition_helper(tm.getMsgFields("0-root"), tm, 0, &ss);
+  return ss.str();
+}
+
+string msg_definition(const ROSMessageFields *rmf, const ROSTypeMap &tm) {
+  stringstream ss;
+  msg_definition_helper(rmf, tm, 0, &ss);
+  return ss.str();
 }
