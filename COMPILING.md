@@ -4,11 +4,45 @@ In order to compile rosbag_wrapper into a mex function so that it can be used on
 
 Even if you only want to compile code for your machine, Matlab comes with its own version of several libraries used by ROS -- most notably Boost -- and these versions may be incompatible with your system version.  So, you'll either need to statically compile boost, or compile and link against the version that Matlab uses.
 
-For each of these instructions, LIB_DIR refers to a directory where you collect all static libraries needed.
-
 See <tt>mex_compile.sh</tt> for an example of the compilation command for rosbag_wrapper.
 
-### ROS libraries using ROS electric
+## Using ROS Groovy
+
+### ROS Libraries
+
+Generate install file and download necessary packages
+
+    mkdir ~/matbag_ws && cd ~/matbag_ws
+    wget http://packages.ros.org/web/rosinstall/generate/raw/groovy/rosbag -O base.rosinstall
+    rosinstall --catkin -n src base.rosinstall
+    rm src/CMakeLists.txt
+    src/catkin/bin/catkin_init_workspace src
+
+Modify src/CMakeLists.txt so that the lines after cmake_minimum_required() are:
+
+    set(BUILD_SHARED_LIBS false)
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fPIC")
+    set(CMAKE_BUILD_TYPE RelWithDebInfo)
+    add_definitions(-DROSCONSOLE_MIN_SEVERITY=ROSCONSOLE_SEVERITY_NONE)
+
+By compiling out logging with ROSCONSOLE_SEVERITY_NONE, we don't need to build log4cxx or any of its dependencies.  Now build the ROS libraries.
+
+    ./catkin/bin/catkin_make
+
+All of the libraries should now be in <tt>matbag_ws/install/lib</tt>
+
+### [Boost](http://www.boost.org/users/download/)
+
+    ./bjam cxxflags='-fPIC'  --build-dir=mybuild --with-regex --with-system \
+      --stagedir=$HOME/matab_ws/install/ link=static stage
+
+### [bz2](http://www.bzip.org/downloads.html)
+
+    make install PREFIX=$HOME/matbag_ws/install
+
+## Using ROS Electric
+
+### ROS libraries
 
 You'll need to compile static libraries for the following packages:
 
@@ -19,6 +53,7 @@ To compile static libraries go to a package's build folder and enter:
     cmake .. -DROS_BUILD_STATIC_LIBS:=true && make
 
 Now check in ../lib and copy the static version of the library to LIB_DIR.
+where LIB_DIR is a directory where you will put all of the static libraries.
 
 ### [Boost](http://www.boost.org/users/download/)
 
