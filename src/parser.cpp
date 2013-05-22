@@ -13,10 +13,10 @@
 
 using namespace std;
 
-static const char *g_type_regexp = ("[a-zA-Z][a-zA-Z1-9_]*"
-                                    "(/[a-zA-Z][a-zA-Z1-9_]*){0,1}"
+static const char *g_type_regexp = ("[a-zA-Z][a-zA-Z0-9_]*"
+                                    "(/[a-zA-Z][a-zA-Z0-9_]*){0,1}"
                                     "(\\[[0-9]*\\]){0,1}");
-static const char *g_field_regexp = "[a-zA-Z][a-zA-Z1-9_]*";
+static const char *g_field_regexp = "[a-zA-Z][a-zA-Z0-9_]*";
 static const char* g_message_split_regexp = "^=+\\n+";
 
 bool validTypeName(const std::string &ref) {
