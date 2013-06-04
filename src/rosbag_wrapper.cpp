@@ -28,7 +28,7 @@ using namespace std;
       throw runtime_error("bad size");                                  \
     }                                                                   \
     size_t n_elem = bytes.size() / sizeof(CPP_TYPE);                    \
-    mxArray *result = mxCreateNumericMatrix(1, n_elem,                  \
+    mxArray *result = mxCreateNumericMatrix(n_elem, 1,                  \
                                             MATLAB_TYPE, mxREAL);       \
     uint8_t *data = static_cast<uint8_t*>(mxGetData(result));           \
     copy(bytes.begin(), bytes.end(), data);                             \
