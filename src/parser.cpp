@@ -44,7 +44,29 @@ map<string,int> init_builtins() {
   return builtins;
 }
 
-map<string,int> ROSType::builtins_(init_builtins());
+map<string, ROSType::BuiltinID> init_typeids() {
+  map<string, ROSType::BuiltinID> typeids;
+  typeids["bool"] = ROSType::BOOL;
+  typeids["byte"] = ROSType::BYTE;
+  typeids["char"] = ROSType::CHAR;
+  typeids["uint8"] = ROSType::UINT8;
+  typeids["uint16"] = ROSType::UINT16;
+  typeids["uint32"] = ROSType::UINT32;
+  typeids["uint64"] = ROSType::UINT64;
+  typeids["int8"] = ROSType::INT8;
+  typeids["int16"] = ROSType::INT16;
+  typeids["int32"] = ROSType::INT32;
+  typeids["int64"] = ROSType::INT64;
+  typeids["float32"] = ROSType::FLOAT32;
+  typeids["float64"] = ROSType::FLOAT64;
+  typeids["time"] = ROSType::TIME;
+  typeids["duration"] = ROSType::DURATION;
+  typeids["string"] = ROSType::STRING;
+  return typeids;
+}
+
+map<string,int> ROSType::builtin_size_(init_builtins());
+map<string,ROSType::BuiltinID> ROSType::builtin_typeid_(init_typeids());
 
 void ROSType::populate(const string &type_str) {
   if (!validTypeName(type_str)) {
@@ -84,9 +106,10 @@ void ROSType::populate(const string &type_str) {
     array_size = 1;
   }
 
-  is_builtin = builtins_.count(msg_name) != 0;
+  is_builtin = builtin_size_.count(msg_name) != 0;
   if (is_builtin) {
-    type_size = builtins_[msg_name];
+    type_size = builtin_size_[msg_name];
+    id = builtin_typeid_[msg_name];
   }
 
   if (is_builtin) {

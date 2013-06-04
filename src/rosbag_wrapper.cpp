@@ -148,24 +148,52 @@ mxArray* decode_builtin(const ROSType &type, const uint8_t *bytes, int *beg) {
     *beg += ttl_sz;
   }
 
-  const string &typestr = type.base_type;
-  if (typestr == "bool")          { return mexWrap<bool>(bytes_vec); }
-  else if (typestr == "byte")     { return mexWrap<int8_t>(bytes_vec); }
-  else if (typestr == "char")     { return mexWrap<uint8_t>(bytes_vec); }
-  else if (typestr == "uint8")    { return mexWrap<uint8_t>(bytes_vec); }
-  else if (typestr == "uint16")   { return mexWrap<uint16_t>(bytes_vec); }
-  else if (typestr == "uint32")   { return mexWrap<uint32_t>(bytes_vec); }
-  else if (typestr == "uint64")   { return mexWrap<uint64_t>(bytes_vec); }
-  else if (typestr == "int8")     { return mexWrap<int8_t>(bytes_vec); }
-  else if (typestr == "int16")    { return mexWrap<int16_t>(bytes_vec); }
-  else if (typestr == "int32")    { return mexWrap<int32_t>(bytes_vec); }
-  else if (typestr == "int64")    { return mexWrap<int64_t>(bytes_vec); }
-  else if (typestr == "float32")  { return mexWrap<float>(bytes_vec); }
-  else if (typestr == "float64")  { return mexWrap<double>(bytes_vec); }
-  else if (typestr == "time")     { return mexWrap<ros::Time>(bytes_vec); }
-  else if (typestr == "duration") { return mexWrap<ros::Time>(bytes_vec); }
-  else if (typestr == "string")   { return mexWrap<string>(bytes_vec); }
-  else { throw invalid_argument("Not a fundamental type"); }
+  switch (type.id) {
+  case ROSType::BOOL:
+    return mexWrap<bool>(bytes_vec);
+    break;
+  case ROSType::CHAR:
+  case ROSType::UINT8:
+    return mexWrap<uint8_t>(bytes_vec);
+    break;
+  case ROSType::UINT16:
+    return mexWrap<uint16_t>(bytes_vec);
+    break;
+  case ROSType::UINT32:
+    return mexWrap<uint32_t>(bytes_vec);
+    break;
+  case ROSType::UINT64:
+    return mexWrap<uint64_t>(bytes_vec);
+    break;
+  case ROSType::BYTE:
+  case ROSType::INT8:
+    return mexWrap<int8_t>(bytes_vec);
+    break;
+  case ROSType::INT16:
+    return mexWrap<int16_t>(bytes_vec);
+    break;
+  case ROSType::INT32:
+    return mexWrap<int32_t>(bytes_vec);
+    break;
+  case ROSType::INT64:
+    return mexWrap<int64_t>(bytes_vec);
+    break;
+  case ROSType::FLOAT32:
+    return mexWrap<float>(bytes_vec);
+    break;
+  case ROSType::FLOAT64:
+    return mexWrap<double>(bytes_vec);
+    break;
+  case ROSType::TIME:
+  case ROSType::DURATION:
+    return mexWrap<ros::Time>(bytes_vec);
+    break;
+  case ROSType::STRING:
+    return mexWrap<string>(bytes_vec);
+    break;
+  default:
+    throw invalid_argument(type.name + " " + " not a fundamental type");
+  }
 }
 
 double decode_builtin_double(const ROSType &type, const uint8_t *bytes,
@@ -173,43 +201,55 @@ double decode_builtin_double(const ROSType &type, const uint8_t *bytes,
   if (!type.is_builtin || type.array_size == -1 || type.type_size == -1) {
     throw invalid_argument("Cannot convert type " + type.name + " to double");
   }
-
-  const string &typestr = type.base_type;
   const uint8_t *pos = bytes + *beg;
   *beg += type.type_size;
-  double val = 0.0;
-  // Note absence of char and string; those have type_size == -1
-  if (typestr == "bool") {
-    val = static_cast<double>(*reinterpret_cast<const bool*>(pos));
-  } else if (typestr == "uint8" || typestr == "byte") {
-    val = static_cast<double>(*reinterpret_cast<const uint8_t*>(pos));
-  } else if (typestr == "uint16") {
-    val = static_cast<double>(*reinterpret_cast<const uint16_t*>(pos));
-  } else if (typestr == "uint32") {
-    val = static_cast<double>(*reinterpret_cast<const uint32_t*>(pos));
-  } else if (typestr == "uint64") {
-    val = static_cast<double>(*reinterpret_cast<const uint64_t*>(pos));
-  } else if (typestr == "int8") {
-    val = static_cast<double>(*reinterpret_cast<const int8_t*>(pos));
-  } else if (typestr == "int16") {
-    val = static_cast<double>(*reinterpret_cast<const int16_t*>(pos));
-  } else if (typestr == "int32") {
-    val = static_cast<double>(*reinterpret_cast<const int32_t*>(pos));
-  } else if (typestr == "int64") {
-    val = static_cast<double>(*reinterpret_cast<const int64_t*>(pos));
-  } else if (typestr == "float32") {
-    val = static_cast<double>(*reinterpret_cast<const float*>(pos));
-  } else if (typestr == "float64") {
-    val = *reinterpret_cast<const double*>(pos);
-  } else if (typestr == "time" || typestr == "duration") {
+  // Note absence of string; that has type_size == -1
+  switch (type.id) {
+  case ROSType::BOOL:
+    return static_cast<double>(*reinterpret_cast<const bool*>(pos));
+    break;
+  case ROSType::CHAR:
+  case ROSType::UINT8:
+    return static_cast<double>(*reinterpret_cast<const uint8_t*>(pos));
+    break;
+  case ROSType::UINT16:
+    return static_cast<double>(*reinterpret_cast<const uint16_t*>(pos));
+    break;
+  case ROSType::UINT32:
+    return static_cast<double>(*reinterpret_cast<const uint32_t*>(pos));
+    break;
+  case ROSType::UINT64:
+    return static_cast<double>(*reinterpret_cast<const uint64_t*>(pos));
+    break;
+  case ROSType::BYTE:
+  case ROSType::INT8:
+    return static_cast<double>(*reinterpret_cast<const int8_t*>(pos));
+    break;
+  case ROSType::INT16:
+    return static_cast<double>(*reinterpret_cast<const int16_t*>(pos));
+    break;
+  case ROSType::INT32:
+    return static_cast<double>(*reinterpret_cast<const int32_t*>(pos));
+    break;
+  case ROSType::INT64:
+    return static_cast<double>(*reinterpret_cast<const int64_t*>(pos));
+    break;
+  case ROSType::FLOAT32:
+    return static_cast<double>(*reinterpret_cast<const float*>(pos));
+    break;
+  case ROSType::FLOAT64:
+    return *reinterpret_cast<const double*>(pos);
+    break;
+  case ROSType::TIME:
+  case ROSType::DURATION:
     uint32_t secs, nsecs;
     secs = static_cast<double>(reinterpret_cast<const uint32_t*>(pos)[0]);
     nsecs = static_cast<double>(reinterpret_cast<const uint32_t*>(pos)[1]);
-    val = secs + 1e-9 * nsecs;
-  } else {
-    throw invalid_argument("Not a fundamental type");
+    return secs + 1e-9 * nsecs;
+    break;
+  default:
+    throw invalid_argument(type.name + " " + " not a fundamental type");
   }
-  return val;
 }
 
 bool is_flattenable(const ROSMessageFields &fields) {

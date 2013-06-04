@@ -27,8 +27,14 @@ struct ROSType {
                           // variable length, otherwise length in name
   int type_size;          // If builtin, size of builtin, -1 means variable
                           // length (i.e. string).  If not builtin, undefined.
+  enum BuiltinID {
+    BOOL, BYTE, CHAR, UINT8, UINT16, UINT32, UINT64, INT8, INT16, INT32, INT64,
+    FLOAT32, FLOAT64, TIME, DURATION, STRING
+  };
+  BuiltinID id;           // If type is builtin, type id.  Undefined otherwise.
 private:
-  static std::map<std::string, int> builtins_;
+  static std::map<std::string, int> builtin_size_;
+  static std::map<std::string, BuiltinID> builtin_typeid_;
 };
 
 // A container which which has info about which fields a message has and what
