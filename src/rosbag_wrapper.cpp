@@ -15,84 +15,6 @@
 
 using namespace std;
 
-//======================== ROS to Matlab conversions ========================//
-
-// Extend mexWrap() to handle converting from vectors of vectors of bytes to
-// matlab types
-#define __CREATE_MEX_WRAP_BYTES(CPP_TYPE, MATLAB_TYPE)                  \
-  template<> mxArray*                                                   \
-  mexWrap<CPP_TYPE, vector<vector<uint8_t> > >                          \
-  (const vector<vector<uint8_t> > &b) {                                 \
-    const vector<uint8_t> &bytes = b.back();                            \
-    if (bytes.size() % sizeof(CPP_TYPE) != 0) {                         \
-      throw runtime_error("bad size");                                  \
-    }                                                                   \
-    size_t n_elem = bytes.size() / sizeof(CPP_TYPE);                    \
-    mxArray *result = mxCreateNumericMatrix(n_elem, 1,                  \
-                                            MATLAB_TYPE, mxREAL);       \
-    uint8_t *data = static_cast<uint8_t*>(mxGetData(result));           \
-    copy(bytes.begin(), bytes.end(), data);                             \
-    return result;                                                      \
-  }
-
-__CREATE_MEX_WRAP_BYTES(uint8_t, mxUINT8_CLASS);
-__CREATE_MEX_WRAP_BYTES(uint16_t, mxUINT16_CLASS);
-__CREATE_MEX_WRAP_BYTES(uint32_t, mxUINT32_CLASS);
-__CREATE_MEX_WRAP_BYTES(uint64_t, mxUINT64_CLASS);
-
-__CREATE_MEX_WRAP_BYTES(int8_t, mxINT8_CLASS);
-__CREATE_MEX_WRAP_BYTES(int16_t, mxINT16_CLASS);
-__CREATE_MEX_WRAP_BYTES(int32_t, mxINT32_CLASS);
-__CREATE_MEX_WRAP_BYTES(int64_t, mxINT64_CLASS);
-
-__CREATE_MEX_WRAP_BYTES(float, mxSINGLE_CLASS);
-__CREATE_MEX_WRAP_BYTES(double, mxDOUBLE_CLASS);
-
-mxArray* bytesToString(const vector<uint8_t> &bytes) {
-  boost::scoped_array<char> chars(new char[bytes.size() + 1]);
-  copy(bytes.begin(), bytes.end(), chars.get());
-  *(chars.get() + bytes.size()) = '\0';
-  mxArray *result = mxCreateString(chars.get());
-  return result;
-}
-
-// Specialization for string.  Return a character array if dealing with a
-// single array of bytes, else return a cell cell array of character arrays.
-template<> mxArray*
-mexWrap<string, vector<vector<uint8_t> > >(const vector<vector<uint8_t> > &b) {
-  if (b.size() == 1) {
-    return bytesToString(b[0]);
-  } else {
-    mxArray *cells = mxCreateCellMatrix(1, b.size());
-    for (int i = 0; i < b.size(); ++i) {
-      mxSetCell(cells, 0, bytesToString(b[i]));
-    }
-    return cells;
-  }
-}
-
-// Specialization for ros::Time from bytes.
-// Return a struct with integer 'sec', 'nsec', fields and a double 'time' field.
-template<> mxArray*
-mexWrap<ros::Time, vector<vector<uint8_t> > >(const vector<vector<uint8_t> > &b) {
-  const char *fields[] = {"sec", "nsec", "time"};
-  mxArray *times =
-    mxCreateStructMatrix(1, b.size(), sizeof(fields)/sizeof(fields[0]), fields);
-
-  for (int i = 0; i < b.size(); ++i) {
-    if (b[i].size() != 8) {
-        throw runtime_error("bad size");
-    }
-    uint32_t sec = 0, nsec = 0;
-    copy(b[i].begin(), b[i].begin() + 4, reinterpret_cast<uint8_t*>(&sec));
-    copy(b[i].begin() + 4, b[i].end(), reinterpret_cast<uint8_t*>(&nsec));
-    mxSetField(times, i, "sec", mexWrap<uint32_t>(sec));
-    mxSetField(times, i, "nsec", mexWrap<uint32_t>(nsec));
-    mxSetField(times, i, "time", mexWrap<double>(sec + 1e-9 * nsec));
-  }
-  return times;
-}
-
 // Specialization for ros::Time.
 // Return a struct with integer 'sec', 'nsec', fields and a doulbe 'time' field.
 template<>
@@ -106,25 +28,88 @@ mxArray* mexWrap<ros::Time>(const ros::Time &t) {
   return time;
 }
 
-// Specialization for bools.  Return a logical array.
-template<> mxArray*
-mexWrap<bool, vector<vector<uint8_t> > >(const vector<vector<uint8_t> > &b) {
-  mxArray *matrix = mxCreateLogicalMatrix(1, b.size());
-  bool *bools = static_cast<bool*>(mxGetData(matrix));
-  for (int i = 0; i < b.size(); ++i) {
-    if (b[i].size() != 1) {
-        throw runtime_error("bad size");
-    } else {
-      bools[i] = b[i][0];
-    }
-  }
-  return matrix;
-}
-
 static uint32_t read_uint32(const uint8_t *bytes, int *beg) {
   uint32_t val = reinterpret_cast<const uint32_t*>(bytes + *beg)[0];
   *beg += 4;
   return val;
+}
+
+// Convert bytes to a matlab string.
+mxArray* mexWrapString(const uint8_t *bytes, int *beg) {
+  uint32_t elem_size = read_uint32(bytes, beg);
+  boost::scoped_array<char> chars(new char[elem_size + 1]);
+  copy(bytes + *beg, bytes + *beg + elem_size, chars.get());
+  *beg += elem_size;
+  *(chars.get() + elem_size) = '\0';
+  mxArray *result = mxCreateString(chars.get());
+  return result;
+}
+
+// Convert bytes to matlab strings.  If n_elem 1, return a matlab string.
+// Otherwise, return a cell array of matlab strings.
+mxArray* mexWrapStrings(size_t elem_num, const uint8_t *bytes, int *beg) {
+  if (elem_num == 1) {
+    return mexWrapString(bytes, beg);
+  } else {
+    mxArray *cells = mxCreateCellMatrix(elem_num, 1);
+    for (int i = 0; i < elem_num; ++i) {
+      mxSetCell(cells, i, mexWrapString(bytes, beg));
+    }
+    return cells;
+  }
+}
+
+mxArray* mexWrapNumeric(mxClassID matid, size_t elem_size, size_t elem_num,
+                        const uint8_t *bytes, int *beg) {
+  mxArray *result = mxCreateNumericMatrix(elem_num, 1, matid, mxREAL);
+  uint8_t *mxdata = static_cast<uint8_t*>(mxGetData(result));
+  size_t nbytes = elem_num * elem_size;
+  copy(bytes + *beg, bytes + *beg + nbytes, mxdata);
+  *beg += nbytes;
+  return result;
+}
+
+// Convert bytes to matlab struct with fields sec, nsec and time.
+mxArray* mexWrapTime(size_t n_elem, const uint8_t *bytes, int *beg) {
+  const char *fields[] = {"sec", "nsec", "time"};
+  mxArray *times =
+    mxCreateStructMatrix(n_elem, 1, sizeof(fields)/sizeof(fields[0]), fields);
+
+  const uint32_t *nums = reinterpret_cast<const uint32_t*>(bytes + *beg);
+  for (int i = 0; i < n_elem; ++i) {
+    uint32_t sec = nums[2*i];
+    uint32_t nsec = nums[2*i + 1];
+    mxSetField(times, i, "sec", mexWrap<uint32_t>(sec));
+    mxSetField(times, i, "nsec", mexWrap<uint32_t>(nsec));
+    mxSetField(times, i, "time", mexWrap<double>(sec + 1e-9 * nsec));
+  }
+  *beg += 2 * sizeof(uint32_t) * n_elem;
+  return times;
+}
+
+mxArray* mexWrapDuration(size_t n_elem, const uint8_t *bytes, int *beg) {
+  const char *fields[] = {"sec", "nsec", "time"};
+  mxArray *times =
+    mxCreateStructMatrix(n_elem, 1, sizeof(fields)/sizeof(fields[0]), fields);
+
+  const int32_t *nums = reinterpret_cast<const int32_t*>(bytes + *beg);
+  for (int i = 0; i < n_elem; ++i) {
+    int32_t sec = nums[2*i];
+    int32_t nsec = nums[2*i + 1];
+    mxSetField(times, i, "sec", mexWrap<int32_t>(sec));
+    mxSetField(times, i, "nsec", mexWrap<int32_t>(nsec));
+    mxSetField(times, i, "time", mexWrap<double>(sec + 1e-9 * nsec));
+  }
+  *beg += 2 * sizeof(int32_t) * n_elem;
+  return times;
+}
+
+mxArray* mexWrapLogical(size_t elem_num, const uint8_t *bytes, int *beg) {
+  mxArray *result = mxCreateLogicalMatrix(elem_num, 1);
+  uint8_t *mxdata = static_cast<uint8_t*>(mxGetData(result));
+  copy(bytes + *beg, bytes + *beg + elem_num, mxdata);
+  *beg += elem_num;
+  return result;
 }
 
 mxArray* decode_builtin(const ROSType &type, const uint8_t *bytes, int *beg) {
@@ -133,66 +118,51 @@ mxArray* decode_builtin(const ROSType &type, const uint8_t *bytes, int *beg) {
     array_len = read_uint32(bytes, beg);
   }
 
-  vector<vector<uint8_t> > bytes_vec;
-  if (type.type_size == -1) {
-    for (int array_ind = 0; array_ind < array_len; ++array_ind) {
-      int elem_size = read_uint32(bytes, beg);
-      bytes_vec.push_back(vector<uint8_t>(elem_size));
-      copy(bytes + *beg, bytes + *beg + elem_size, bytes_vec.back().begin());
-      *beg += elem_size;
-    }
-  } else {
-    size_t ttl_sz = type.type_size * array_len;
-    bytes_vec.push_back(vector<uint8_t>(ttl_sz));
-    copy(bytes + *beg, bytes + *beg + ttl_sz, bytes_vec.back().begin());
-    *beg += ttl_sz;
-  }
-
   switch (type.id) {
-  case ROSType::BOOL:
-    return mexWrap<bool>(bytes_vec);
-    break;
-  case ROSType::CHAR:
-  case ROSType::UINT8:
-    return mexWrap<uint8_t>(bytes_vec);
-    break;
-  case ROSType::UINT16:
-    return mexWrap<uint16_t>(bytes_vec);
-    break;
-  case ROSType::UINT32:
-    return mexWrap<uint32_t>(bytes_vec);
-    break;
-  case ROSType::UINT64:
-    return mexWrap<uint64_t>(bytes_vec);
-    break;
-  case ROSType::BYTE:
-  case ROSType::INT8:
-    return mexWrap<int8_t>(bytes_vec);
-    break;
-  case ROSType::INT16:
-    return mexWrap<int16_t>(bytes_vec);
-    break;
-  case ROSType::INT32:
-    return mexWrap<int32_t>(bytes_vec);
-    break;
-  case ROSType::INT64:
-    return mexWrap<int64_t>(bytes_vec);
-    break;
-  case ROSType::FLOAT32:
-    return mexWrap<float>(bytes_vec);
-    break;
-  case ROSType::FLOAT64:
-    return mexWrap<double>(bytes_vec);
+  case ROSType::STRING:
+    return mexWrapStrings(array_len, bytes, beg);
     break;
   case ROSType::TIME:
   case ROSType::DURATION:
-    return mexWrap<ros::Time>(bytes_vec);
+    return mexWrapTime(array_len, bytes, beg);
     break;
-  case ROSType::STRING:
-    return mexWrap<string>(bytes_vec);
+  case ROSType::BOOL:
+    return mexWrapLogical(array_len, bytes, beg);
+    break;
+  case ROSType::CHAR:
+  case ROSType::UINT8:
+    return mexWrapNumeric(mxUINT8_CLASS, type.type_size, array_len, bytes, beg);
+    break;
+  case ROSType::UINT16:
+    return mexWrapNumeric(mxUINT16_CLASS, type.type_size, array_len, bytes, beg);
+    break;
+  case ROSType::UINT32:
+    return mexWrapNumeric(mxUINT32_CLASS, type.type_size, array_len, bytes, beg);
+    break;
+  case ROSType::UINT64:
+    return mexWrapNumeric(mxUINT64_CLASS, type.type_size, array_len, bytes, beg);
+    break;
+  case ROSType::BYTE:
+  case ROSType::INT8:
+    return mexWrapNumeric(mxINT8_CLASS, type.type_size, array_len, bytes, beg);
+    break;
+  case ROSType::INT16:
+    return mexWrapNumeric(mxINT16_CLASS, type.type_size, array_len, bytes, beg);
+    break;
+  case ROSType::INT32:
+    return mexWrapNumeric(mxINT32_CLASS, type.type_size, array_len, bytes, beg);
+    break;
+  case ROSType::INT64:
+    return mexWrapNumeric(mxINT64_CLASS, type.type_size, array_len, bytes, beg);
+    break;
+  case ROSType::FLOAT32:
+    return mexWrapNumeric(mxSINGLE_CLASS, type.type_size, array_len, bytes, beg);
+    break;
+  case ROSType::FLOAT64:
+    return mexWrapNumeric(mxDOUBLE_CLASS, type.type_size, array_len, bytes, beg);
     break;
   default:
-    throw invalid_argument(type.name + " " + " not a fundamental type");
+    throw invalid_argument(type.name + " not a fundamental type");
   }
 }
 
@@ -241,14 +211,15 @@ double decode_builtin_double(const ROSType &type, const uint8_t *bytes,
     return *reinterpret_cast<const double*>(pos);
     break;
   case ROSType::TIME:
+    return static_cast<double>(reinterpret_cast<const uint32_t*>(pos)[0] +
+                               reinterpret_cast<const uint32_t*>(pos)[1]*1e-9);
+    break;
   case ROSType::DURATION:
-    uint32_t secs, nsecs;
-    secs = static_cast<double>(reinterpret_cast<const uint32_t*>(pos)[0]);
-    nsecs = static_cast<double>(reinterpret_cast<const uint32_t*>(pos)[1]);
-    return secs + 1e-9 * nsecs;
+    return static_cast<double>(reinterpret_cast<const int32_t*>(pos)[0] +
+                               reinterpret_cast<const int32_t*>(pos)[1]*1e-9);
     break;
   default:
-    throw invalid_argument(type.name + " " + " not a fundamental type");
+    throw invalid_argument(type.name + " not a fundamental type");
   }
 }
 

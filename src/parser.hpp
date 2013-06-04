@@ -28,8 +28,10 @@ struct ROSType {
   int type_size;          // If builtin, size of builtin, -1 means variable
                           // length (i.e. string).  If not builtin, undefined.
   enum BuiltinID {
-    BOOL, BYTE, CHAR, UINT8, UINT16, UINT32, UINT64, INT8, INT16, INT32, INT64,
-    FLOAT32, FLOAT64, TIME, DURATION, STRING
+    BOOL , BYTE, CHAR,
+    UINT8, UINT16, UINT32, UINT64, INT8, INT16, INT32, INT64,
+    FLOAT32, FLOAT64,
+    TIME, DURATION, STRING
   };
   BuiltinID id;           // If type is builtin, type id.  Undefined otherwise.
 private:
