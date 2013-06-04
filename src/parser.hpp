@@ -74,55 +74,16 @@ private:
   mutable std::map<std::string, ROSMessageFields*> type_map_;
 };
 
-
-// A representation of an instance of a specific message type
-class ROSMessage {
-public:
-  class Field {
-  public:
-    Field(const std::string &name) : name_(name) {}
-
-    const std::string& name() const { return name_; }
-    const ROSMessage& at(int i) const { return *values_.at(i); }
-    int size() const { return values_.size(); }
-  private:
-    std::string name_;
-    std::vector<ROSMessage*> values_;
-
-    friend class ROSMessage;
-  };
-  ROSMessage(const ROSType &type);
-  ~ROSMessage();
-
-  const std::vector<std::vector<uint8_t> >& bytes() const { return bytes_; }
-  const ROSType& type() const { return type_; }
-  int nfields() const { return fields_.size(); }
-  const Field& lookupField(const std::string &key) const;
-  const Field& at(int i) const { return *fields_.at(i); }
-
-  void populate(const ROSTypeMap &types, const uint8_t *bytes, int *beg);
-private:
-  std::vector<Field*> fields_;
-  std::vector<std::vector<uint8_t> > bytes_;
-  const ROSType type_;
-};
-
-// Convenience class to create a ROSMessage from a rosbag::MessageInstance
+// Convenience class to store message definitions from rosbag::MessageInstance's
 class BagDeserializer {
 public:
-  BagDeserializer() : bytes_(NULL) {}
+  BagDeserializer() {}
   ~BagDeserializer();
 
-  ROSMessage* CreateMessage(const rosbag::MessageInstance &m);
+  const ROSTypeMap* getTypeMap(const rosbag::MessageInstance &m);
 
 private:
-  const ROSTypeMap* getTypeMap(const rosbag::MessageInstance &m);
-  void populateMsg(const ROSTypeMap &type_map,
-                   const rosbag::MessageInstance &m,
-                   ROSMessage *rm);
-
   std::map<std::string, ROSTypeMap*> type_maps_;
-  boost::scoped_array<uint8_t> bytes_;
 };
 
 class BagInfo {

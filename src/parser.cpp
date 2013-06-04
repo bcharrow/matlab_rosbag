@@ -237,8 +237,11 @@ bool serialize<int8_t>(const string &str_value, vector<uint8_t> *bytes) {
 bool serialize_constant(const ROSType &type, const string &val,
                         vector<uint8_t> *bytes) {
   if (type.name == "string") {
-    bytes->resize(val.size());
-    copy(val.begin(), val.end(), bytes->begin());
+    uint32_t sz = val.size();
+    bytes->resize(sizeof(uint32_t) + sz);
+    uint8_t *sz_bytes = reinterpret_cast<uint8_t*>(&sz);
+    copy(sz_bytes, sz_bytes + sizeof(uint32_t), bytes->begin());
+    copy(val.begin(), val.end(), bytes->begin() + sizeof(uint32_t));
     return true;
   } else {
     istringstream ss(val);
@@ -389,92 +392,6 @@ vector<string> ROSTypeMap::resolve(const std::string &type) const {
   }
 }
 
-ROSMessage::ROSMessage(const ROSType &type)
-  : fields_(0), bytes_(0), type_(type) {
-
-}
-
-ROSMessage::~ROSMessage() {
-  vector<Field*>::iterator it;
-  vector<ROSMessage*>::iterator mit;
-  for (it = fields_.begin(); it != fields_.end(); ++it) {
-    for (mit = (*it)->values_.begin(); mit != (*it)->values_.end(); ++mit) {
-      delete (*mit);
-    }
-    delete (*it);
-  }
-}
-
-uint32_t read_uint32(const uint8_t *bytes, int *beg) {
-  uint32_t val = reinterpret_cast<const uint32_t*>(bytes + *beg)[0];
-  *beg += 4;
-  return val;
-}
-
-const ROSMessage::Field& ROSMessage::lookupField(const std::string &key) const {
-  for (size_t i = 0; i < fields_.size(); ++i) {
-    if (fields_[i]->name() == key) {
-      return *fields_[i];
-    }
-  }
-  throw invalid_argument("Field lookup failed: " + key);
-}
-
-void ROSMessage::populate(const ROSTypeMap &types, const uint8_t *bytes, int *beg) {
-  if (type_.is_builtin) {
-    int array_len = type_.array_size;
-    if (array_len == -1) {
-      array_len = read_uint32(bytes, beg);
-    }
-
-    if (type_.type_size == -1) {
-      for (int array_ind = 0; array_ind < array_len; ++array_ind) {
-        int elem_size = read_uint32(bytes, beg);
-        bytes_.push_back(std::vector<uint8_t>(elem_size));
-        copy(bytes + *beg, bytes + *beg + elem_size, bytes_.back().begin());
-        *beg += elem_size;
-      }
-    } else {
-      size_t ttl_sz = type_.type_size * array_len;
-      bytes_.push_back(std::vector<uint8_t>(ttl_sz));
-      copy(bytes + *beg, bytes + *beg + ttl_sz, bytes_.back().begin());
-      *beg += ttl_sz;
-    }
-  } else {
-    const ROSMessageFields *rmfs = types.getMsgFields(type_.base_type);
-    if (rmfs == NULL) {
-      throw invalid_argument("Couldn't resolve fields for " + type_.base_type);
-    }
-
-    for (int i = 0; i < rmfs->nfields(); ++i) {
-      const ROSMessageFields::Field &rmf = rmfs->at(i);
-      int array_len = rmf.type.is_builtin ? 1 : rmf.type.array_size;
-      if (array_len == -1) {
-        array_len = read_uint32(bytes, beg);
-      }
-
-      ROSMessage::Field *field = new ROSMessage::Field(rmf.name);
-      fields_.push_back(field);
-
-      // If field is not a constant, recursively populate it.  Otherwise
-      // serialize the constant's value to bytes
-      if (!rmf.constant) {
-        for (int array_ind = 0; array_ind < array_len; ++array_ind) {
-          ROSMessage *msg = new ROSMessage(rmf.type);
-          field->values_.push_back(msg);
-          // If populate throws, msg will be freed as it's in fields_
-          msg->populate(types, bytes, beg);
-        }
-      } else {
-        ROSMessage *msg = new ROSMessage(rmf.type);
-        msg->bytes_.push_back(rmf.bytes);
-        field->values_.push_back(msg);
-      }
-    }
-  }
-}
-
-
 BagDeserializer::~BagDeserializer() {
   for (map<string, ROSTypeMap*>::iterator it = type_maps_.begin();
        it != type_maps_.end();
@@ -491,40 +408,6 @@ const ROSTypeMap* BagDeserializer::getTypeMap(const rosbag::MessageInstance &m) 
   }
 
   return type_maps_[m.getDataType()];
-}
-
-void BagDeserializer::populateMsg(const ROSTypeMap &type_map,
-                                  const rosbag::MessageInstance &m,
-                                  ROSMessage *rm) {
-  bytes_.reset(new uint8_t[m.size()]);
-  ros::serialization::IStream stream(bytes_.get(), m.size());
-  m.write(stream);
-
-  int beg = 0;
-  rm->populate(type_map, bytes_.get(), &beg);
-  if (beg != static_cast<int>(m.size())) {
-    throw invalid_argument("Not all bytes were consumed while reading message");
-  }
-}
-
-ROSMessage* BagDeserializer::CreateMessage(const rosbag::MessageInstance &m) {
-  const ROSTypeMap *rtm = getTypeMap(m);
-
-  const ROSMessageFields *rmf = rtm->getMsgFields("0-root");
-  if (rmf == NULL) {
-    throw invalid_argument("Couldn't get root message type");
-  }
-
-  ROSMessage *msg = new ROSMessage(rmf->type());
-
-  try {
-    populateMsg(*rtm, m, msg);
-  } catch (std::exception &e) {
-    delete msg;
-    throw;
-  }
-
-  return msg;
 }
 
 //================================= BagInfo =================================//
