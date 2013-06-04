@@ -35,36 +35,55 @@ classdef Bag
             hn = rosbag_wrapper(obj.handle, 'hasNext');
         end
 
-        function [msg, meta] = readMessage(obj)
+        function [msg, meta] = readMessage(obj, flatten)
         % Read a message from the bag
-        % [MSG] = readMessage() gets the next message from the bag
+        % [MSG] = readMessage() gets the next message from the bag.  By default,
+        % messages are flattened.
         %
-        % [MSG, META] = readMessage() gets the next message and return meta
-        % data associated with it
-            if nargout == 1
-                msg = rosbag_wrapper(obj.handle, 'readMessage', false);
+        % [MSG] = readMessage(flatten) flattens messages if flatten is true.
+        %
+        % [MSG, META] = readMessage(...) gets the next message and return meta
+        % data associated with it.
+            if nargin < 2
+                flatten = true;
             else
-                [msg, meta] = rosbag_wrapper(obj.handle, 'readMessage', true);
+                flatten = logical(flatten);
+            end
+
+            if nargout == 1
+                msg = rosbag_wrapper(obj.handle, 'readMessage', false, flatten);
+            else
+                [msg, meta] = rosbag_wrapper(obj.handle, 'readMessage', true, flatten);
             end
         end
 
-        function [msg, meta] = readAllMessages(obj, topics)
+        function [msg, meta] = readAllMessages(obj, topics, flatten)
         % Read remaining messages from the bag
         % [MSG] = readAllMessages() returns all messages from the current
         % point on as a cell array.
         %
-        % [MSG, META] = readAllMessages(...) returns meta data for each
-        % message in a cell array.
+        % [MSG, META] = readAllMessages(...) returns meta data for each message
+        % in a cell array.
         %
-        % [...] = readAllMessages(topics) resets the view to 'topics' and
-        % then reads all messages.
-            if nargin == 2
+        % [...] = readAllMessages(topics) resets the view to 'topics' and then
+        % reads all messages.
+            if nargin > 1
                 obj.resetView(topics)
             end
-            if nargout == 1
-                msg = rosbag_wrapper(obj.handle, 'readAllMessages', false);
+
+            if nargin < 3
+                flatten = true;
             else
-                [msg, meta] = rosbag_wrapper(obj.handle, 'readAllMessages', true);
+                flatten = logical(flatten);
+            end
+
+
+            if nargout == 1
+                msg = rosbag_wrapper(obj.handle, 'readAllMessages', false, ...
+                                     flatten);
+            else
+                [msg, meta] = rosbag_wrapper(obj.handle, 'readAllMessages', ...
+                                             true, flatten);
             end
         end
 

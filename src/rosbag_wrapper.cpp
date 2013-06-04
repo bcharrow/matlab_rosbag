@@ -168,8 +168,63 @@ mxArray* decode_builtin(const ROSType &type, const uint8_t *bytes, int *beg) {
   else { throw invalid_argument("Not a fundamental type"); }
 }
 
+double decode_builtin_double(const ROSType &type, const uint8_t *bytes,
+                             int *beg) {
+  if (!type.is_builtin || type.array_size == -1 || type.type_size == -1) {
+    throw invalid_argument("Cannot convert type " + type.name + " to double");
+  }
+
+  const string &typestr = type.base_type;
+  const uint8_t *pos = bytes + *beg;
+  *beg += type.type_size;
+  double val = 0.0;
+  // Note absence of char and string; those have type_size == -1
+  if (typestr == "bool") {
+    val = static_cast<double>(*reinterpret_cast<const bool*>(pos));
+  } else if (typestr == "uint8" || typestr == "byte") {
+    val = static_cast<double>(*reinterpret_cast<const uint8_t*>(pos));
+  } else if (typestr == "uint16") {
+    val = static_cast<double>(*reinterpret_cast<const uint16_t*>(pos));
+  } else if (typestr == "uint32") {
+    val = static_cast<double>(*reinterpret_cast<const uint32_t*>(pos));
+  } else if (typestr == "uint64") {
+    val = static_cast<double>(*reinterpret_cast<const uint64_t*>(pos));
+  } else if (typestr == "int8") {
+    val = static_cast<double>(*reinterpret_cast<const int8_t*>(pos));
+  } else if (typestr == "int16") {
+    val = static_cast<double>(*reinterpret_cast<const int16_t*>(pos));
+  } else if (typestr == "int32") {
+    val = static_cast<double>(*reinterpret_cast<const int32_t*>(pos));
+  } else if (typestr == "int64") {
+    val = static_cast<double>(*reinterpret_cast<const int64_t*>(pos));
+  } else if (typestr == "float32") {
+    val = static_cast<double>(*reinterpret_cast<const float*>(pos));
+  } else if (typestr == "float64") {
+    val = *reinterpret_cast<const double*>(pos);
+  } else if (typestr == "time" || typestr == "duration") {
+    uint32_t secs, nsecs;
+    secs = static_cast<double>(reinterpret_cast<const uint32_t*>(pos)[0]);
+    nsecs = static_cast<double>(reinterpret_cast<const uint32_t*>(pos)[1]);
+    val = secs + 1e-9 * nsecs;
+  } else {
+    throw invalid_argument("Not a fundamental type");
+  }
+  return val;
+}
+
+bool is_flattenable(const ROSMessageFields &fields) {
+  bool flattenable = true;
+  for (int i = 0; i < fields.nfields(); ++i) {
+    const ROSMessageFields::Field &rmf = fields.at(i);
+    const ROSType &type = rmf.type;
+    flattenable &= (!rmf.constant && type.is_builtin && !type.is_array &&
+                    type.type_size != -1);
+  }
+  return flattenable;
+}
+
 mxArray* decode_rosmsg(const ROSType &type, const ROSTypeMap &typemap,
-                       const uint8_t *bytes, int *beg) {
+                       bool flatten, const uint8_t *bytes, int *beg) {
   const ROSMessageFields *rmfs = typemap.getMsgFields(type.base_type);
   if (rmfs == NULL) {
     throw invalid_argument("Couldn't resolve fields for " + type.base_type);
@@ -180,44 +235,60 @@ mxArray* decode_rosmsg(const ROSType &type, const ROSTypeMap &typemap,
     array_len = read_uint32(bytes, beg);
   }
 
-  // Create struct for messages
-  boost::scoped_array<const char*> fieldnames(new const char*[rmfs->nfields()]);
-  for (int i = 0; i < rmfs->nfields(); ++i) {
-    fieldnames[i] = rmfs->at(i).name.c_str();
-  }
-  mxArray *matmsg = mxCreateStructMatrix(1, array_len,
-                                         rmfs->nfields(), fieldnames.get());
-
-  // Populate fields
-  for (int array_ind = 0; array_ind < array_len; ++array_ind) {
-    for (int field_ind = 0; field_ind < rmfs->nfields(); ++field_ind) {
-      const ROSMessageFields::Field &rmf = rmfs->at(field_ind);
-
-      mxArray *field_val;
-      if (rmf.constant) {
-        boost::scoped_array<uint8_t> const_bytes(new uint8_t[rmf.bytes.size()]);
-        copy(rmf.bytes.begin(), rmf.bytes.end(), const_bytes.get());
-        int serbeg = 0;
-        field_val = decode_builtin(rmf.type, const_bytes.get(), &serbeg);
-      } else if (rmf.type.is_builtin) {
-        field_val = decode_builtin(rmf.type, bytes, beg);
-      } else {
-        field_val = decode_rosmsg(rmf.type, typemap, bytes, beg);
+  if (flatten && is_flattenable(*rmfs)) {
+    // Return message as matrix of doubles
+    int nfields = rmfs->nfields();
+    mxArray *matmsg = mxCreateDoubleMatrix(nfields, array_len, mxREAL);
+    double *data = mxGetPr(matmsg);
+    for (int array_ind = 0; array_ind < array_len; ++array_ind) {
+      for (int field_ind = 0; field_ind < nfields; ++field_ind) {
+        const ROSMessageFields::Field &rmf = rmfs->at(field_ind);
+        double val = decode_builtin_double(rmf.type, bytes, beg);
+        data[field_ind + array_ind * nfields] = val;
       }
-      // mxSetField(matmsg, array_ind, fieldnames[field_ind], field_val);
-      mxSetFieldByNumber(matmsg, array_ind, field_ind, field_val);
     }
+    return matmsg;
+  } else {
+    // Create struct of messages
+    boost::scoped_array<const char*> fieldnames(new const char*[rmfs->nfields()]);
+    for (int i = 0; i < rmfs->nfields(); ++i) {
+      fieldnames[i] = rmfs->at(i).name.c_str();
+    }
+    mxArray *matmsg =
+      mxCreateStructMatrix(1, array_len, rmfs->nfields(), fieldnames.get());
+
+    // Populate fields
+    for (int array_ind = 0; array_ind < array_len; ++array_ind) {
+      for (int field_ind = 0; field_ind < rmfs->nfields(); ++field_ind) {
+        const ROSMessageFields::Field &rmf = rmfs->at(field_ind);
+
+        mxArray *field_val;
+        if (!rmf.type.is_builtin) {
+          field_val = decode_rosmsg(rmf.type, typemap, flatten, bytes, beg);
+        } else if (!rmf.constant) {
+          field_val = decode_builtin(rmf.type, bytes, beg);
+        } else {
+          boost::scoped_array<uint8_t> serbytes(new uint8_t[rmf.bytes.size()]);
+          copy(rmf.bytes.begin(), rmf.bytes.end(), serbytes.get());
+          int serbeg = 0;
+          field_val = decode_builtin(rmf.type, serbytes.get(), &serbeg);
+        }
+
+        mxSetFieldByNumber(matmsg, array_ind, field_ind, field_val);
+      }
+    }
+    return matmsg;
   }
-  return matmsg;
 }
 
-mxArray* decode_rostype(const ROSTypeMap &typemap, const uint8_t *bytes) {
+mxArray* decode_rostype(const ROSTypeMap &typemap, const uint8_t *bytes,
+                        bool flatten) {
   int beg = 0;
   const ROSMessageFields *fields = typemap.getMsgFields("0-root");
   if (fields == NULL) {
     throw invalid_argument("Typemap does not have root type");
   }
-  return decode_rosmsg(fields->type(), typemap, bytes, &beg);
+  return decode_rosmsg(fields->type(), typemap, flatten, bytes, &beg);
 }
 
 //============================= Mex Interfaces ==============================//
@@ -243,24 +314,26 @@ public:
       vector<string> topics = mexUnwrap<vector<string> >(prhs[1]);
       resetView(topics);
     } else if (cmd == "readMessage") {
-      if (nrhs != 2) {
+      if (nrhs != 3) {
         error("ROSBagWrapper::mex() Expected two arguments");
       }
       bool meta = mexUnwrap<bool>(prhs[1]);
+      bool flatten = mexUnwrap<bool>(prhs[2]);
       if (!meta) {
-        readMessage(&plhs[0]);
+        readMessage(flatten, &plhs[0]);
       } else {
-        readMessage(&plhs[0], &plhs[1]);
+        readMessage(flatten, &plhs[0], &plhs[1]);
       }
     } else if (cmd == "readAllMessages") {
-      if (nrhs != 2) {
+      if (nrhs != 3) {
         error("ROSBagWrapper::mex() Expected two arguments");
       }
       bool meta = mexUnwrap<bool>(prhs[1]);
+      bool flatten = mexUnwrap<bool>(prhs[2]);
       if (!meta) {
-        readAllMessages(&plhs[0]);
+        readAllMessages(flatten, &plhs[0]);
       } else {
-        readAllMessages(&plhs[0], &plhs[1]);
+        readAllMessages(flatten, &plhs[0], &plhs[1]);
       }
     } else if (cmd == "hasNext") {
       plhs[0] = mexWrap<bool>(hasNext());
@@ -282,21 +355,21 @@ public:
     iter_ = view_->begin();
   }
 
-  void readMessage(mxArray **msg) {
+  void readMessage(bool flatten, mxArray **msg) {
     const rosbag::MessageInstance &mi = *iter_;
 
     const ROSTypeMap *map = deser_.getTypeMap(mi);
-
-    boost::scoped_array<uint8_t> bytes(new uint8_t[mi.size()]);
-    ros::serialization::IStream stream(bytes.get(), mi.size());
+    size_t sz = mi.size();
+    boost::scoped_array<uint8_t> bytes(new uint8_t[sz]);
+    ros::serialization::IStream stream(bytes.get(), sz);
     mi.write(stream);
 
-    *msg = decode_rostype(*map, bytes.get());
+    *msg = decode_rostype(*map, bytes.get(), flatten);
 
     ++iter_;
   }
 
-  void readMessage(mxArray **msg, mxArray **meta) {
+  void readMessage(bool flatten, mxArray **msg, mxArray **meta) {
     const rosbag::MessageInstance &mi = *iter_;
     const char *fields[] = {"topic", "time", "datatype"};
     mxArray *val =
@@ -306,27 +379,28 @@ public:
     mxSetField(val, 0, "datatype", mexWrap<string>(mi.getDataType()));
     *meta = val;
 
-    readMessage(msg);
+    readMessage(flatten, msg);
   }
 
-  void readAllMessages(mxArray **msg) {
+  void readAllMessages(bool flatten, mxArray **msg) {
     vector<mxArray*> msgs;
     while (hasNext()) {
       msgs.push_back(NULL);
-      readMessage(&msgs.back());
+      readMessage(flatten, &msgs.back());
     }
+
     *msg = mxCreateCellMatrix(1, msgs.size());
     for (int i = 0; i < msgs.size(); ++i) {
       mxSetCell(*msg, i, msgs[i]);
     }
   }
 
-  void readAllMessages(mxArray **msg, mxArray **meta) {
+  void readAllMessages(bool flatten, mxArray **msg, mxArray **meta) {
     vector<mxArray*> msgs, metas;
     while (hasNext()) {
       msgs.push_back(NULL);
       metas.push_back(NULL);
-      readMessage(&msgs.back(), &metas.back());
+      readMessage(flatten, &msgs.back(), &metas.back());
     }
     *msg = mxCreateCellMatrix(1, msgs.size());
     *meta = mxCreateCellMatrix(1, metas.size());
