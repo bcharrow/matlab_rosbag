@@ -4,11 +4,7 @@ In order to compile rosbag_wrapper into a mex function so that it can be used on
 
 Even if you only want to compile code for your machine, Matlab comes with its own version of several libraries used by ROS -- most notably Boost -- and these versions may be incompatible with your system version.  So, you'll either need to statically compile boost, or compile and link against the version that Matlab uses.
 
-See <tt>mex_compile.sh</tt> for an example of the compilation command for rosbag_wrapper.
-
 ## Using ROS Groovy
-
-### ROS Libraries
 
 Generate install file and download necessary packages
 
@@ -38,7 +34,18 @@ All of the libraries should now be in <tt>matbag_ws/install/lib</tt>
 
 ### [bz2](http://www.bzip.org/downloads.html)
 
+Add <tt>-fPIC</tt> to the CFLAGS line in the Makefile.
+
     make install PREFIX=$HOME/matbag_ws/install
+
+### matlab_rosbag
+Clone the repository and use the <tt>mex_compile.sh</tt> build script
+
+    cd ~/matbag_ws/src
+    git clone git://github.com/bcharrow/matlab_rosbag.git
+    cd matlab_rosbag/src
+    bash mex_compile.sh
+    
 
 ## Using ROS Electric
 
