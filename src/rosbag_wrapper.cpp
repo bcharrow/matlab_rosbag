@@ -324,38 +324,43 @@ public:
     if (cmd == "resetView") {
       vector<string> topics = mexUnwrap<vector<string> >(prhs[1]);
       resetView(topics);
-    } else if (cmd == "readMessage") {
+    } else if (cmd == "read") {
       if (nrhs != 3) {
         error("ROSBagWrapper::mex() Expected two arguments");
       }
       bool meta = mexUnwrap<bool>(prhs[1]);
       bool flatten = mexUnwrap<bool>(prhs[2]);
       if (!meta) {
-        readMessage(flatten, &plhs[0]);
+        read(flatten, &plhs[0]);
       } else {
-        readMessage(flatten, &plhs[0], &plhs[1]);
+        read(flatten, &plhs[0], &plhs[1]);
       }
-    } else if (cmd == "readAllMessages") {
+    } else if (cmd == "readAll") {
       if (nrhs != 3) {
         error("ROSBagWrapper::mex() Expected two arguments");
       }
       bool meta = mexUnwrap<bool>(prhs[1]);
       bool flatten = mexUnwrap<bool>(prhs[2]);
       if (!meta) {
-        readAllMessages(flatten, &plhs[0]);
+        readAll(flatten, &plhs[0]);
       } else {
-        readAllMessages(flatten, &plhs[0], &plhs[1]);
+        readAll(flatten, &plhs[0], &plhs[1]);
       }
     } else if (cmd == "hasNext") {
       plhs[0] = mexWrap<bool>(hasNext());
     } else if (cmd == "info") {
       plhs[0] = mexWrap<string>(info_.info());
-    } else if (cmd == "rawDefinition") {
-      string msg_type = mexUnwrap<string>(prhs[1]);
-      plhs[0] = mexWrap<string>(info_.rawDefinition(msg_type));
     } else if (cmd == "definition") {
+      if (nrhs != 3) {
+        error("ROSBagWrapper::mex() Expected two arguments");
+      }
       string msg_type = mexUnwrap<string>(prhs[1]);
-      plhs[0] = mexWrap<string>(info_.definition(msg_type));
+      bool raw = mexUnwrap<bool>(prhs[2]);
+      if (raw) {
+        plhs[0] = mexWrap<string>(info_.rawDefinition(msg_type));
+      } else {
+        plhs[0] = mexWrap<string>(info_.definition(msg_type));
+      }
     } else {
       throw invalid_argument("ROSBagWrapper::mex() Unknown method");
     }
@@ -366,7 +371,7 @@ public:
     iter_ = view_->begin();
   }
 
-  void readMessage(bool flatten, mxArray **msg) {
+  void read(bool flatten, mxArray **msg) {
     const rosbag::MessageInstance &mi = *iter_;
 
     const ROSTypeMap *map = deser_.getTypeMap(mi);
@@ -380,7 +385,7 @@ public:
     ++iter_;
   }
 
-  void readMessage(bool flatten, mxArray **msg, mxArray **meta) {
+  void read(bool flatten, mxArray **msg, mxArray **meta) {
     const rosbag::MessageInstance &mi = *iter_;
     const char *fields[] = {"topic", "time", "datatype"};
     mxArray *val =
@@ -390,14 +395,14 @@ public:
     mxSetField(val, 0, "datatype", mexWrap<string>(mi.getDataType()));
     *meta = val;
 
-    readMessage(flatten, msg);
+    read(flatten, msg);
   }
 
-  void readAllMessages(bool flatten, mxArray **msg) {
+  void readAll(bool flatten, mxArray **msg) {
     vector<mxArray*> msgs;
     while (hasNext()) {
       msgs.push_back(NULL);
-      readMessage(flatten, &msgs.back());
+      read(flatten, &msgs.back());
     }
 
     *msg = mxCreateCellMatrix(1, msgs.size());
@@ -406,12 +411,12 @@ public:
     }
   }
 
-  void readAllMessages(bool flatten, mxArray **msg, mxArray **meta) {
+  void readAll(bool flatten, mxArray **msg, mxArray **meta) {
     vector<mxArray*> msgs, metas;
     while (hasNext()) {
       msgs.push_back(NULL);
       metas.push_back(NULL);
-      readMessage(flatten, &msgs.back(), &metas.back());
+      read(flatten, &msgs.back(), &metas.back());
     }
     *msg = mxCreateCellMatrix(1, msgs.size());
     *meta = mxCreateCellMatrix(1, metas.size());
