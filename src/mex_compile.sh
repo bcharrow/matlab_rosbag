@@ -1,10 +1,16 @@
-mex -O rosbag_wrapper.cpp parser.cpp  \
-  ../../../install/lib/librosbag.a \
-  ../../../install/lib/libroscpp.a \
-  ../../../install/lib/librostime.a \
-  ../../../install/lib/libroscpp_serialization.a \
-  ../../../install/lib/libboost_regex.a \
-  ../../../install/lib/libboost_system.a \
-  ../../../install/lib/libbz2.a \
-  -I../../../install/include \
-  -I/usr/local/include
+INSTALL="../../../install/lib"
+INCLUDE="-I../../../install/include -I/usr/local/include"
+LINK=""
+if [[ $(uname -s) == "Linux" ]]; then
+    LINK="${LINK} -lrt"
+fi
+
+mex -O rosbag_wrapper.cpp parser.cpp \
+  ${INSTALL}/librosbag.a \
+  ${INSTALL}/libroscpp.a \
+  ${INSTALL}/librostime.a \
+  ${INSTALL}/libroscpp_serialization.a \
+  ${INSTALL}/libboost_regex.a \
+  ${INSTALL}/libboost_system.a \
+  ${INSTALL}/libbz2.a \
+  ${INCLUDE} ${LINK}

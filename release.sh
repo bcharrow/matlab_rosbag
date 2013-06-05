@@ -19,5 +19,5 @@ cp -r src/+ros $DEST/
 cp src/README $DEST/
 cp LICENSE.txt $DEST/
 cp LICENSE-Willow.txt $DEST/
-cd build/ && zip -r $NAME.zip $NAME
+cd build/ && rm -f $NAME.zip && zip -r $NAME.zip $NAME
 echo Created build/$NAME.zip
