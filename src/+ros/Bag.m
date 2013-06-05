@@ -40,12 +40,19 @@ classdef Bag
         function [msg, meta] = read(obj, flatten)
         % Get the next message
         % [MSG] = read() returns the next message from the bag as a struct.  By
-        % default, messages are flattened.
+        % default, messages are flattened if possible.
         %
         % [MSG] = read(flatten) flattens messages if flatten is true.
         %
         % [MSG, META] = read(...) gets the next message and return meta
         % data associated with it.
+        %
+        % A message can be flattened if all its members are fixed size
+        % primitives (i.e., all ROS primitives except strings).  Instead of
+        % being returned as a struct, a flattened field is returned as an
+        % M-By-N matrix of doubles where M is the number of fields in the
+        % message and N is the length of the array.  For example, a flattened
+        % geometry_msgs/Vector3[5] would be returned as a 3-by-5 matrix.
             if nargin < 2
                 flatten = true;
             else
