@@ -327,7 +327,10 @@ public:
     } else if (cmd == "read") {
       if (nrhs != 3) {
         error("ROSBagWrapper::mex() Expected two arguments");
+      } else if (!hasNext()) {
+        error("No more messages for current view");
       }
+
       bool meta = mexUnwrap<bool>(prhs[1]);
       bool flatten = mexUnwrap<bool>(prhs[2]);
       if (!meta) {
