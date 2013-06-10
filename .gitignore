@@ -5,6 +5,7 @@
 *.o
 *.so
 *.mexmaci64
+*.mexa64
 ROS_NOBUILD
 
 build
