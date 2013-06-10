@@ -1,14 +1,12 @@
 # Overview
 
-matlab_rosbag is a library for reading ROS bags in Matlab.  It uses the C++ ROS API and returns messages as structs.  Because all of the work is done inside of a statically linked mex function, ROS does not need to be installed on a machine to use this library.
+matlab_rosbag is a library for reading ROS bags in Matlab.  It uses the C++ ROS API and returns messages as structs.  It also lets get meta-data about the bag (i.e., topic info and message definitions similar to <tt>rosmsg show</tt> and <tt>rosbag info</tt>).  Because all of the work is done inside of a statically linked mex function, ROS does not need to be installed on a machine to use this library.
 
-Building things requires some work and so I recommend you download a precompiled version of the code:
+You can download the compiled code for Mac and Linux from sourceforge:
 
-<b>Version 0.2</b>
- - Download [Mac OS X 64-bit](http://www.seas.upenn.edu/~bcharrow/media/code/matlab_rosbag-0.2-mac64.zip)
- - Download [Linux 64-bit](http://www.seas.upenn.edu/~bcharrow/media/code/matlab_rosbag-0.2-linux64.zip)
+https://sourceforge.net/projects/matlabrosbag/files
 
-If you want to compile things yourself see <tt>COMPILING.md</tt>.  WARNING: This code won't work at all if your machine is big-endian.
+If you want to compile things yourself see [COMPILING.md](COMPILING.md).  WARNING: This library won't work at all if your machine is big-endian.
 
 # Usage
 
