@@ -651,6 +651,9 @@ void BagInfo::readTypeMaps(const vector<const rosbag::ConnectionInfo*> &connecti
         throw;
       }
     }
+    if (topic_types_.find(ci->topic) == topic_types_.end()) {
+      topic_types_[ci->topic] = ci->datatype;
+    }
   }
 }
 
@@ -743,6 +746,34 @@ string BagInfo::definition(const std::string &msg_type) const {
     }
     throw invalid_argument("Couldn't find message definition");
   }
+}
+
+bool BagInfo::isTopic(const string &topic) const {
+  map<string, string>::const_iterator it = topic_types_.find(topic);
+  if (it != topic_types_.end()) {
+    return true;
+  } else {
+    return false;
+  }
+}
+
+string BagInfo::topicType(const string &topic) const {
+  map<string, string>::const_iterator it = topic_types_.find(topic);
+  if (it != topic_types_.end()) {
+    return it->second;
+  } else {
+    throw invalid_argument("Couldn't find topic '" + topic + "'");
+  }
+}
+
+vector<string> BagInfo::topicType(const vector<string> &topics) const {
+  vector<string> types(topics.size());
+  vector<string>::const_iterator it;
+  int i = 0;
+  for (it = topics.begin(), i = 0; it != topics.end(); ++it, ++i) {
+    types[i] = topicType(*it);
+  }
+  return types;
 }
 
 //============================= msg_definition ==============================//

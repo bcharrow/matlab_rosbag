@@ -121,5 +121,11 @@ classdef Bag
         function [out] = disp(obj)
             fprintf('ros.Bag(''%s'')\n\n', obj.path);
         end
+
+        function [type] = topicType(obj, topic)
+        % Get a string listing the message type of topic or topics
+        % [type] = topics(topic)
+            type = rosbag_wrapper(obj.handle, 'topicType', topic);
+        end
     end
 end
