@@ -359,11 +359,7 @@ public:
       }
       string msg_type = mexUnwrap<string>(prhs[1]);
       bool raw = mexUnwrap<bool>(prhs[2]);
-      if (raw) {
-        plhs[0] = mexWrap<string>(info_.rawDefinition(msg_type));
-      } else {
-        plhs[0] = mexWrap<string>(info_.definition(msg_type));
-      }
+      plhs[0] = mexWrap<string>(info_.definition(msg_type, raw));
     } else if (cmd == "topicType") {
       if (nrhs != 2) {
         error("ROSBagWrapper::mex() Expected one argument");

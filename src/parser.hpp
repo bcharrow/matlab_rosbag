@@ -105,9 +105,9 @@ public:
   // Get a string summarizing the contents of the bag.  Outputs most of the
   // information found in "rosbag info"
   std::string info();
-  std::string rawDefinition(const std::string &msg_type) const;
-  std::string definition(const std::string &msg_type) const;
-
+  // Check if input string is a topic name or message type.  Outputs the
+  // definition of the resolved message type.
+  std::string definition(const std::string &input, bool raw) const;
   // Check if string a topic name
   bool isTopic(const std::string &topic) const;
   // Get a string listing the type of message published on a topic
