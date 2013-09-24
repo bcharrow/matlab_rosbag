@@ -127,5 +127,15 @@ classdef Bag
         % [type] = topics(topic)
             type = rosbag_wrapper(obj.handle, 'topicType', topic);
         end
+
+        function [topic, types] = topics(obj)
+        % Get a cell array listing all topics in bag and their types.
+        % [topic, types] = topics()
+            topic = rosbag_wrapper(obj.handle, 'topics');
+            if nargout > 1
+                types = rosbag_wrapper(obj.handle, 'topicType', topic);
+            end
+        end
+
     end
 end

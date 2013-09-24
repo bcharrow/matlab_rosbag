@@ -786,6 +786,16 @@ vector<string> BagInfo::topicType(const vector<string> &topics) const {
   return types;
 }
 
+vector<string> BagInfo::topics(void) const {
+  vector<string> topic_vec(topic_types_.size());
+  map<string, string>::const_iterator it;
+  int i;
+  for (it = topic_types_.begin(), i = 0; it != topic_types_.end(); ++it, ++i) {
+    topic_vec[i] = it->first;
+  }
+  return topic_vec;
+}
+
 //============================= msg_definition ==============================//
 
 void msg_definition_helper(const ROSMessageFields *rmf, const ROSTypeMap &rtm,

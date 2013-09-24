@@ -113,6 +113,8 @@ public:
   // Get a string listing the type of message published on a topic
   std::string topicType(const std::string &topic) const;
   std::vector<std::string> topicType(const std::vector<std::string> &topic) const;
+  // Return vector containing all topics in bag
+  std::vector<std::string> topics(void) const;
 
 private:
   struct TopicSummary {
