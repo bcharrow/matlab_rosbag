@@ -786,12 +786,14 @@ vector<string> BagInfo::topicType(const vector<string> &topics) const {
   return types;
 }
 
-vector<string> BagInfo::topics(void) const {
-  vector<string> topic_vec(topic_types_.size());
+vector<string> BagInfo::topics(const string &regexp) const {
+  const boost::regex reg(regexp);
+  vector<string> topic_vec;
   map<string, string>::const_iterator it;
-  int i;
-  for (it = topic_types_.begin(), i = 0; it != topic_types_.end(); ++it, ++i) {
-    topic_vec[i] = it->first;
+  for (it = topic_types_.begin(); it != topic_types_.end(); ++it) {
+    if (boost::regex_match(it->first, reg)) {
+      topic_vec.push_back(it->first);
+    }
   }
   return topic_vec;
 }

@@ -367,10 +367,11 @@ public:
       vector<string> topics = mexUnwrap<vector<string> >(prhs[1]);
       plhs[0] = mexWrap<vector<string> >(info_.topicType(topics));
     } else if (cmd == "topics") {
-      if (nrhs != 1) {
-        error("ROSBagWrapper::mex() Expected zero arguments");
+      if (nrhs != 2) {
+        error("ROSBagWrapper::mex() Expected one argument");
       }
-      vector<string> topics = info_.topics();
+      string regexp = mexUnwrap<string>(prhs[1]);
+      vector<string> topics = info_.topics(regexp);
       plhs[0] = mexWrap<vector<string> >(topics);
     } else {
       throw invalid_argument("ROSBagWrapper::mex() Unknown method");
