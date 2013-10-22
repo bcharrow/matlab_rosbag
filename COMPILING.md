@@ -6,10 +6,12 @@ Even if you only want to compile code for your machine, Matlab comes with its ow
 
 ## Using ROS Groovy
 
+Install the [rosinstall_generator](http://wiki.ros.org/rosinstall_generator#Installation) package for ROS.
+
 Generate install file and download necessary packages
 
     mkdir ~/matbag_ws && cd ~/matbag_ws
-    wget http://packages.ros.org/web/rosinstall/generate/raw/groovy/rosbag -O base.rosinstall
+    rosinstall_generator rosbag --deps > base.rosinstall
     rosinstall --catkin -n src base.rosinstall
     rm src/CMakeLists.txt
     src/catkin/bin/catkin_init_workspace src
@@ -23,14 +25,21 @@ Modify src/CMakeLists.txt so that the lines after cmake_minimum_required() are:
 
 By compiling out logging with ROSCONSOLE_SEVERITY_NONE, we don't need to build log4cxx or any of its dependencies.  Now build the ROS libraries.
 
-    ./catkin/bin/catkin_make
+    .src/catkin/bin/catkin_make
 
-All of the libraries should now be in <tt>matbag_ws/install/lib</tt>
+Now copy all of the libraries to <tt>matbag_ws/install/lib</tt>
+
+    cp devel/lib/* ~/matbag_ws/install/lib/
+
 
 ### [Boost](http://www.boost.org/users/download/)
 
     ./bjam cxxflags='-fPIC'  --build-dir=mybuild --with-regex --with-system \
       --stagedir=$HOME/matab_ws/install/ link=static stage
+
+Now copy all of the libraries to <tt>matbag_ws/install/lib</tt>
+
+    cp stage/lib/* ~/matbag_ws/install/lib/
 
 ### [bz2](http://www.bzip.org/downloads.html)
 
@@ -45,7 +54,7 @@ Clone the repository and use the <tt>mex_compile.sh</tt> build script
     git clone git://github.com/bcharrow/matlab_rosbag.git
     cd matlab_rosbag/src
     bash mex_compile.sh
-    
+
 
 ## Using ROS Electric
 
@@ -66,8 +75,8 @@ where LIB_DIR is a directory where you will put all of the static libraries.
 
     ./bootstrap.sh
     ./bjam cxxflags='-fPIC'  --build-dir=mybuild \
-        --with-regex --with-thread --with-signals --with-filesystem \  
-        --with-system link=static stag
+        --with-regex --with-thread --with-signals --with-filesystem \
+        --with-system link=static stage
      cp stage/lib/* LIB_DIR
 
 ### [bz2](http://www.bzip.org/downloads.html)
@@ -96,16 +105,16 @@ IMPORTANT: On OS X I had to compile the APR implementation of iconv() and compil
 
 ### [APR-util](http://apr.apache.org/download.cgi)
 
-    CFLAGS=-fPIC ./configure \ 
-                 --with-iconv=../apr-iconv-1.2.1/install \ 
-                 --with-apr=../apr-1.4.6/install \                   
+    CFLAGS=-fPIC ./configure \
+                 --with-iconv=../apr-iconv-1.2.1/install \
+                 --with-apr=../apr-1.4.6/install \
                  --with-expat=../expat-2.1.0/install
     make
     cp .libs/libapr-1.a LIB_DIR
 
 ### [log4cxx](http://logging.apache.org/log4cxx/download.html)
 
-    CFLAGS=-fPIC ./configure --prefix=$(pwd)/install \ 
+    CFLAGS=-fPIC ./configure --prefix=$(pwd)/install \
         --with-apr=../apr-1.4.6/install \
         --with-apr-util=../apr-util-1.5.1/install
     make

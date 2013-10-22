@@ -121,5 +121,25 @@ classdef Bag
         function [out] = disp(obj)
             fprintf('ros.Bag(''%s'')\n\n', obj.path);
         end
+
+        function [type] = topicType(obj, topic)
+        % Get a string listing the message type of topic or topics
+        % [type] = topics(topic)
+            type = rosbag_wrapper(obj.handle, 'topicType', topic);
+        end
+
+        function [topic, types] = topics(obj, regex)
+        % Get a cell array listing all topics in bag and their types.
+        % Optionally, use regular expression regex to select topics.
+        % [topic, types] = topics(regex)
+            if nargin < 2
+                regex = '.*';
+            end
+            topic = rosbag_wrapper(obj.handle, 'topics', regex);
+            if nargout > 1
+                types = rosbag_wrapper(obj.handle, 'topicType', topic);
+            end
+        end
+
     end
 end

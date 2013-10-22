@@ -97,6 +97,22 @@ mxArray* mexWrap<std::string>(const std::string& value) {
   return mxCreateString(value.c_str());
 }
 
+// specialization for std::vector<std::string>.
+// wrap into a cell array of strings if vector has more than one element,
+// else wrap into a character array
+template<>
+mxArray* mexWrap<std::vector<std::string> >(const std::vector<std::string> &s) {
+  if (s.size() == 1) {
+    return mxCreateString(s[0].c_str());
+  } else {
+    mxArray *strings = mxCreateCellMatrix(1, s.size());
+    for (int i = 0; i < s.size(); ++i) {
+      mxSetCell(strings, i, mxCreateString(s[i].c_str()));
+    }
+    return strings;
+  }
+}
+
 // specialization to char
 template<>
 mxArray* mexWrap<char>(const char& value) {

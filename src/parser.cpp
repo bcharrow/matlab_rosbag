@@ -651,16 +651,10 @@ void BagInfo::readTypeMaps(const vector<const rosbag::ConnectionInfo*> &connecti
         throw;
       }
     }
+    if (topic_types_.find(ci->topic) == topic_types_.end()) {
+      topic_types_[ci->topic] = ci->datatype;
+    }
   }
-}
-
-string BagInfo::rawDefinition(const std::string &msg_type) const {
-  stringstream ss;
-  map<string, string>::const_iterator it = msg_defs_.find(msg_type);
-  if (it == msg_defs_.end()) {
-    throw invalid_argument("No message definition for '" + msg_type + "' found");
-  }
-  return it->second;
 }
 
 vector<string> BagInfo::formatSummaries(const vector<TopicSummary> &topics) {
@@ -698,51 +692,110 @@ vector<string> BagInfo::formatSummaries(const vector<TopicSummary> &topics) {
   return topic_summary;
 }
 
-string BagInfo::definition(const std::string &msg_type) const {
-  ROSType type;
-  type.populate(msg_type);
-  string resolved_type;
-
-  map<string, ROSTypeMap*>::const_iterator it;
+string BagInfo::definition(const std::string &input, bool raw) const {
+  string msg_type;
   string msg_def;
-  // Resolve name to absolute message type; just take first name that matches
-  if (type.is_qualified) {
-    resolved_type = type.base_type;
+
+  // Check if input is a topic name, else assume it is a message type
+  if (isTopic(input)) {
+    msg_type = topicType(input);
+    msg_def = "MSG: " + msg_type + "\n";
   } else {
-    for (it = type_maps_.begin(); it != type_maps_.end(); ++it) {
-      // Check if type is defined in the message definition or it's the root
-      // type of the type map
-      vector<string> pkg_names = it->second->resolve(type.base_type);
-      string subtype = it->first.substr(it->first.find("/") + 1);
-      if (pkg_names.size() != 0) {
-        resolved_type = pkg_names.at(0) + "/" + type.base_type;
-        msg_def = "MSG: " + resolved_type + "\n";
-        break;
-      } else if (subtype == type.base_type) {
-        resolved_type = it->first;
-        msg_def = "MSG: " + resolved_type + "\n";
-        break;
+    msg_type = input;
+  }
+
+  if (raw) {
+    stringstream ss;
+    map<string, string>::const_iterator it = msg_defs_.find(msg_type);
+    if (it == msg_defs_.end()) {
+      throw invalid_argument("No topic or message definition for '" + input + "' found");
+    }
+    return msg_def + it->second;
+  } else {
+    ROSType type;
+    type.populate(msg_type);
+    string resolved_type;
+
+    map<string, ROSTypeMap*>::const_iterator it;
+    // Resolve name to absolute message type; just take first name that matches
+    if (type.is_qualified) {
+      resolved_type = type.base_type;
+    } else {
+      for (it = type_maps_.begin(); it != type_maps_.end(); ++it) {
+        // Check if type is defined in the message definition or it's the root
+        // type of the type map
+        vector<string> pkg_names = it->second->resolve(type.base_type);
+        string subtype = it->first.substr(it->first.find("/") + 1);
+        if (pkg_names.size() != 0) {
+          resolved_type = pkg_names.at(0) + "/" + type.base_type;
+          msg_def = "MSG: " + resolved_type + "\n";
+          break;
+        } else if (subtype == type.base_type) {
+          resolved_type = it->first;
+          msg_def = "MSG: " + resolved_type + "\n";
+          break;
+        }
+      }
+      if (it == type_maps_.end()) {
+        throw invalid_argument("No topic or message definition for '" + input + "' found");
       }
     }
-    if (it == type_maps_.end()) {
-      throw invalid_argument("Couldn't find message definition");
-    }
-  }
 
-  // Now that type is guaranteed to be resolved, lookup message definition
-  it = type_maps_.find(resolved_type);
-  if (it != type_maps_.end()) {
-    return msg_def + msg_definition(*it->second);
-  } else {
-    for (map<string, ROSTypeMap*>::const_iterator it = type_maps_.begin();
-         it != type_maps_.end(); ++it) {
-        const ROSMessageFields *rmf = it->second->getMsgFields(resolved_type);
-        if (rmf != NULL) {
-          return msg_def + msg_definition(rmf, *it->second);
-        }
+    // Now that type is guaranteed to be resolved, lookup message definition
+    it = type_maps_.find(resolved_type);
+    if (it != type_maps_.end()) {
+      return msg_def + msg_definition(*it->second);
+    } else {
+      for (map<string, ROSTypeMap*>::const_iterator it = type_maps_.begin();
+           it != type_maps_.end(); ++it) {
+          const ROSMessageFields *rmf = it->second->getMsgFields(resolved_type);
+          if (rmf != NULL) {
+            return msg_def + msg_definition(rmf, *it->second);
+          }
+      }
+      throw invalid_argument("No topic or message definition for '" + input + "' found");
     }
-    throw invalid_argument("Couldn't find message definition");
   }
+}
+
+bool BagInfo::isTopic(const string &topic) const {
+  map<string, string>::const_iterator it = topic_types_.find(topic);
+  if (it != topic_types_.end()) {
+    return true;
+  } else {
+    return false;
+  }
+}
+
+string BagInfo::topicType(const string &topic) const {
+  map<string, string>::const_iterator it = topic_types_.find(topic);
+  if (it != topic_types_.end()) {
+    return it->second;
+  } else {
+    throw invalid_argument("Couldn't find topic '" + topic + "'");
+  }
+}
+
+vector<string> BagInfo::topicType(const vector<string> &topics) const {
+  vector<string> types(topics.size());
+  vector<string>::const_iterator it;
+  int i = 0;
+  for (it = topics.begin(), i = 0; it != topics.end(); ++it, ++i) {
+    types[i] = topicType(*it);
+  }
+  return types;
+}
+
+vector<string> BagInfo::topics(const string &regexp) const {
+  const boost::regex reg(regexp);
+  vector<string> topic_vec;
+  map<string, string>::const_iterator it;
+  for (it = topic_types_.begin(); it != topic_types_.end(); ++it) {
+    if (boost::regex_match(it->first, reg)) {
+      topic_vec.push_back(it->first);
+    }
+  }
+  return topic_vec;
 }
 
 //============================= msg_definition ==============================//

@@ -16,7 +16,7 @@
 using namespace std;
 
 // Specialization for ros::Time.
-// Return a struct with integer 'sec', 'nsec', fields and a doulbe 'time' field.
+// Return a struct with integer 'sec', 'nsec', fields and a double 'time' field.
 template<>
 mxArray* mexWrap<ros::Time>(const ros::Time &t) {
   const char *fields[] = {"sec", "nsec", "time"};
@@ -359,11 +359,20 @@ public:
       }
       string msg_type = mexUnwrap<string>(prhs[1]);
       bool raw = mexUnwrap<bool>(prhs[2]);
-      if (raw) {
-        plhs[0] = mexWrap<string>(info_.rawDefinition(msg_type));
-      } else {
-        plhs[0] = mexWrap<string>(info_.definition(msg_type));
+      plhs[0] = mexWrap<string>(info_.definition(msg_type, raw));
+    } else if (cmd == "topicType") {
+      if (nrhs != 2) {
+        error("ROSBagWrapper::mex() Expected one argument");
       }
+      vector<string> topics = mexUnwrap<vector<string> >(prhs[1]);
+      plhs[0] = mexWrap<vector<string> >(info_.topicType(topics));
+    } else if (cmd == "topics") {
+      if (nrhs != 2) {
+        error("ROSBagWrapper::mex() Expected one argument");
+      }
+      string regexp = mexUnwrap<string>(prhs[1]);
+      vector<string> topics = info_.topics(regexp);
+      plhs[0] = mexWrap<vector<string> >(topics);
     } else {
       throw invalid_argument("ROSBagWrapper::mex() Unknown method");
     }
