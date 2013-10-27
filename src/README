@@ -22,3 +22,7 @@ Matlab and follow these steps from the command line:
     mv libstdc++* backup
 
 Start Matlab up again and things should work.
+
+With some versions of Ubuntu and Matlab, the libstdc++ libraries may be located
+elsewhere (e.g., /usr/local/MATLAB/bin).  The same steps should fix the
+problem.

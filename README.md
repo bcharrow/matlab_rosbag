@@ -24,6 +24,8 @@ Matlab ships with an old version of the C++ standard library that you'll need to
     mkdir backup
     mv libstdc++* backup
 
+With some versions of Ubuntu and Matlab, the libstdc++ libraries may be located elsewhere (e.g., /usr/local/MATLAB/bin).  The same steps should fix the problem.
+
 # License
 
 matlab_rosbag is licensed under the BSD license.
