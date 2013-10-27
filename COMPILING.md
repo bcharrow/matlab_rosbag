@@ -25,21 +25,14 @@ Modify src/CMakeLists.txt so that the lines after cmake_minimum_required() are:
 
 By compiling out logging with ROSCONSOLE_SEVERITY_NONE, we don't need to build log4cxx or any of its dependencies.  Now build the ROS libraries.
 
-    .src/catkin/bin/catkin_make
-
-Now copy all of the libraries to <tt>matbag_ws/install/lib</tt>
-
-    cp devel/lib/* ~/matbag_ws/install/lib/
-
+    src/catkin/bin/catkin_make install
 
 ### [Boost](http://www.boost.org/users/download/)
+Download and unpack the latest version of Boost and go to that directory.
 
-    ./bjam cxxflags='-fPIC'  --build-dir=mybuild --with-regex --with-system \
-      --stagedir=$HOME/matab_ws/install/ link=static stage
-
-Now copy all of the libraries to <tt>matbag_ws/install/lib</tt>
-
-    cp stage/lib/* ~/matbag_ws/install/lib/
+    ./bootstrap.sh
+    ./b2 cxxflags='-fPIC' --build-dir=build --with-regex --with-system \
+         link=static --prefix=$HOME/matbag_ws/install/ install
 
 ### [bz2](http://www.bzip.org/downloads.html)
 
@@ -120,4 +113,3 @@ IMPORTANT: On OS X I had to compile the APR implementation of iconv() and compil
     make
     make install
     cp install/lib/liblog4cxx.a LIB_DIR
-
