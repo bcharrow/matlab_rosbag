@@ -748,10 +748,10 @@ string BagInfo::definition(const std::string &input, bool raw) const {
     } else {
       for (map<string, ROSTypeMap*>::const_iterator it = type_maps_.begin();
            it != type_maps_.end(); ++it) {
-          const ROSMessageFields *rmf = it->second->getMsgFields(resolved_type);
-          if (rmf != NULL) {
-            return msg_def + msg_definition(rmf, *it->second);
-          }
+        const ROSMessageFields *rmf = it->second->getMsgFields(resolved_type);
+        if (rmf != NULL) {
+          return msg_def + msg_definition(rmf, *it->second);
+        }
       }
       throw invalid_argument("No topic or message definition for '" + input + "' found");
     }

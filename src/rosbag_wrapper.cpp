@@ -45,10 +45,11 @@ mxArray* mexWrapString(const uint8_t *bytes, int *beg) {
   return result;
 }
 
-// Convert bytes to matlab strings.  If n_elem 1, return a matlab string.
-// Otherwise, return a cell array of matlab strings.
-mxArray* mexWrapStrings(size_t elem_num, const uint8_t *bytes, int *beg) {
-  if (elem_num == 1) {
+// Convert bytes to matlab strings.  If bytes represent an array, return a cell
+// array of matlab strings, otherwise return a matlab string.
+mxArray* mexWrapStrings(bool is_array, size_t elem_num, const uint8_t *bytes,
+                        int *beg) {
+  if (!is_array) {
     return mexWrapString(bytes, beg);
   } else {
     mxArray *cells = mxCreateCellMatrix(elem_num, 1);
@@ -120,7 +121,7 @@ mxArray* decode_builtin(const ROSType &type, const uint8_t *bytes, int *beg) {
 
   switch (type.id) {
   case ROSType::STRING:
-    return mexWrapStrings(array_len, bytes, beg);
+    return mexWrapStrings(type.is_array, array_len, bytes, beg);
     break;
   case ROSType::TIME:
   case ROSType::DURATION:
