@@ -11,8 +11,5 @@ find_package(Boost REQUIRED COMPONENTS regex)
 
 add_library(matlab_rosbag src/parser.cpp)
 
-add_executable(read_bag_test src/read_bag_test.cpp)
-target_link_libraries(read_bag_test matlab_rosbag ${catkin_LIBRARIES})
-
 catkin_add_gtest(parser_test src/parser_test.cpp)
 target_link_libraries(parser_test matlab_rosbag)
