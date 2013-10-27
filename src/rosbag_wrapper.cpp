@@ -27,6 +27,48 @@ mxArray* mexWrap(const ros::Time &t) {
   return time;
 }
 
+mxArray* mexWrap(const geometry_msgs::Vector3 &v) {
+  mxArray *result = mxCreateNumericMatrix(3, 1, mxDOUBLE_CLASS, mxREAL);
+  double *data = static_cast<double*>(mxGetData(result));
+  data[0] = v.x;
+  data[1] = v.y;
+  data[2] = v.z;
+  return result;
+}
+
+mxArray* mexWrap(const geometry_msgs::Quaternion &q) {
+  mxArray *result = mxCreateNumericMatrix(4, 1, mxDOUBLE_CLASS, mxREAL);
+  double *data = static_cast<double*>(mxGetData(result));
+  data[0] = q.x;
+  data[1] = q.y;
+  data[2] = q.z;
+  data[3] = q.w;
+  return result;
+}
+
+mxArray* mexWrap(const vector<geometry_msgs::TransformStamped> &t) {
+  const char *fields[] = {"translation", "rotation"};
+  mxArray *transform =
+    mxCreateStructMatrix(1, t.size(), sizeof(fields) / sizeof(fields[0]), fields);
+  for (size_t i = 0; i < t.size(); ++i) {
+    mxSetField(transform, i, fields[0], mexWrap(t.at(i).transform.translation));
+    mxSetField(transform, i, fields[1], mexWrap(t.at(i).transform.rotation));
+  }
+  return transform;
+}
+
+mxArray* mexWrap(const vector<geometry_msgs::Pose2D> &ps) {
+  mxArray *result = mxCreateNumericMatrix(3, ps.size(), mxDOUBLE_CLASS, mxREAL);
+  double *data = static_cast<double*>(mxGetData(result));
+  for (size_t i = 0; i < ps.size(); ++i) {
+    const geometry_msgs::Pose2D &pose = ps.at(i);
+    data[i * 3 + 0] = pose.x;
+    data[i * 3 + 1] = pose.y;
+    data[i * 3 + 2] = pose.theta;
+  }
+  return result;
+}
+
 static uint32_t read_uint32(const uint8_t *bytes, int *beg) {
   uint32_t val = reinterpret_cast<const uint32_t*>(bytes + *beg)[0];
   *beg += 4;
@@ -373,6 +415,32 @@ public:
       string regexp = mexUnwrap<string>(prhs[1]);
       vector<string> topics = info_.topics(regexp);
       plhs[0] = mexWrap(topics);
+    } else if (cmd == "buildTree") {
+      assertArgs(4, nrhs);
+      double start = mexUnwrap<double>(prhs[1]);
+      double stop = mexUnwrap<double>(prhs[2]);
+      string topic = mexUnwrap<string>(prhs[3]);
+      transformer_.buildTree(bag_, ros::Time(start), ros::Time(stop), topic);
+    } else if (cmd == "allFrames") {
+      plhs[0] = mexWrap(transformer_.allFrames());
+    } else if (cmd == "lookupTransforms") {
+      assertArgs(5, nrhs);
+      string target_frame = mexUnwrap<string>(prhs[1]);
+      string source_frame = mexUnwrap<string>(prhs[2]);
+      vector<double> times = mexUnwrap<vector<double> >(prhs[3]);
+      bool just2d = mexUnwrap<bool>(prhs[4]);
+
+      if (just2d) {
+        vector<geometry_msgs::Pose2D> transforms;
+        transformer_.lookupTransforms(target_frame, source_frame, times,
+                                      &transforms);
+        plhs[0] = mexWrap(transforms);
+      } else {
+        vector<geometry_msgs::TransformStamped> transforms;
+        transformer_.lookupTransforms(target_frame, source_frame, times,
+                                      &transforms);
+        plhs[0] = mexWrap(transforms);
+      }
     } else {
       throw invalid_argument("ROSBagWrapper::mex() Unknown method");
     }
@@ -446,6 +514,7 @@ private:
   string path_;
   rosbag::Bag bag_;
   BagInfo info_;
+  BagTF transformer_;
   boost::scoped_ptr<rosbag::View> view_;
   rosbag::View::iterator iter_;
   BagDeserializer deser_;

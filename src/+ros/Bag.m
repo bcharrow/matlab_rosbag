@@ -118,7 +118,7 @@ classdef Bag
             defn = rosbag_wrapper(obj.handle, 'definition', msg_type, raw);
         end
 
-        function [out] = disp(obj)
+        function [] = disp(obj)
             fprintf('ros.Bag(''%s'')\n\n', obj.path);
         end
 
@@ -141,5 +141,55 @@ classdef Bag
             end
         end
 
+        function [] = buildTree(obj, start_time, end_time, tf_topic)
+        % Build the TF tree using this bag
+        %
+        % buildTree() builds the tree using all messages in the bag on the /tf
+        % topic.
+        %
+        % buildTree(start_time, end_time) only uses messages whose timestamp are
+        % in between start_time and end_time.
+        %
+        % buildTree([], [], tf_topic) builds the tree using messages on
+        % tf_topic instead of /tf
+            if nargin < 2 || isempty(start_time)
+                start_time = 0.0;
+            end
+            if nargin < 3 || isempty(end_time)
+                end_time = double(intmax());
+            end
+            if nargin < 4 || isempty(tf_topic)
+                tf_topic = '/tf';
+            end
+            rosbag_wrapper(obj.handle, 'buildTree', start_time, ...
+                end_time, tf_topic);
+        end
+
+        function [frames] = allFrames(obj)
+        % Get a string describing all TF frames
+        %
+        % Must call buildTree() first
+            frames = rosbag_wrapper(obj.handle, 'allFrames');
+        end
+
+        function [transforms] = lookupTransforms(obj, target_frame, source_frame, times, just2d)
+        % Get the transformation between two frames at various points in time
+        %
+        % [transforms] = lookupTransforms(target_frame, source_frame, times)
+        % returns a struct array whose ith element is the 3D transform which
+        % projects data in source_frame to target_frame at times(i).
+        %
+        % [transforms] = lookupTransforms(target_frame, source_frame, times, true)
+        % returns a matrix where each column is the 2D transformation (x, y, yaw)
+        %
+        % Must call buildTree() first
+        if nargin < 5
+            just2d = false;
+        else
+            just2d = logical(just2d);
+        end
+        transforms = rosbag_wrapper(obj.handle, 'lookupTransforms', ...
+            target_frame, source_frame, times, just2d);
+        end
     end
 end

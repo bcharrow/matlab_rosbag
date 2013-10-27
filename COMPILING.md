@@ -5,13 +5,31 @@ In order to compile rosbag_wrapper into a mex function so that it can be used on
 Even if you only want to compile code for your machine, Matlab comes with its own version of several libraries used by ROS -- most notably Boost -- and these versions may be incompatible with your system version.  So, you'll either need to statically compile boost, or compile and link against the version that Matlab uses.
 
 ## Using ROS Groovy
+You need to install each of these things in order.
 
+### [Boost](http://www.boost.org/users/download/)
+Download and unpack the latest version of Boost and go to that directory.
+
+    ./bootstrap.sh
+    ./b2 cxxflags='-fPIC' --build-dir=build --with-regex --with-system \
+      --with-filesystem --with-program_options --with-date_time --with-thread \
+      --with-signals link=static --prefix=$HOME/matbag_ws/install/ install
+
+To compile things with multiple processors, add the flag <tt>-jNUM_PROCESSORS</tt>
+
+### [bz2](http://www.bzip.org/downloads.html)
+
+Add <tt>-fPIC</tt> to the CFLAGS line in the Makefile.
+
+    make install PREFIX=$HOME/matbag_ws/install
+
+### ROS
 Install the [rosinstall_generator](http://wiki.ros.org/rosinstall_generator#Installation) package for ROS.
 
 Generate install file and download necessary packages
 
     mkdir ~/matbag_ws && cd ~/matbag_ws
-    rosinstall_generator rosbag --deps > base.rosinstall
+    rosinstall_generator rosbag tf2 tf --deps > base.rosinstall
     rosinstall --catkin -n src base.rosinstall
     rm src/CMakeLists.txt
     src/catkin/bin/catkin_init_workspace src
@@ -23,22 +41,12 @@ Modify src/CMakeLists.txt so that the lines after cmake_minimum_required() are:
     set(CMAKE_BUILD_TYPE RelWithDebInfo)
     add_definitions(-DROSCONSOLE_MIN_SEVERITY=ROSCONSOLE_SEVERITY_NONE)
 
-By compiling out logging with ROSCONSOLE_SEVERITY_NONE, we don't need to build log4cxx or any of its dependencies.  Now build the ROS libraries.
+    set(Boost_NO_SYSTEM_PATHS ON)
+    set(BOOST_ROOT "${CMAKE_SOURCE_DIR}/../install")
+
+By compiling out logging with ROSCONSOLE_SEVERITY_NONE, we don't need to build log4cxx or any of its dependencies.  Also, we're using the downloaded version of boost and not the system's version.  To build everything:
 
     src/catkin/bin/catkin_make install
-
-### [Boost](http://www.boost.org/users/download/)
-Download and unpack the latest version of Boost and go to that directory.
-
-    ./bootstrap.sh
-    ./b2 cxxflags='-fPIC' --build-dir=build --with-regex --with-system \
-         link=static --prefix=$HOME/matbag_ws/install/ install
-
-### [bz2](http://www.bzip.org/downloads.html)
-
-Add <tt>-fPIC</tt> to the CFLAGS line in the Makefile.
-
-    make install PREFIX=$HOME/matbag_ws/install
 
 ### matlab_rosbag
 Clone the repository and use the <tt>mex_compile.sh</tt> build script

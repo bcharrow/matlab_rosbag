@@ -1,6 +1,9 @@
 #include "parser.hpp"
 
 #include <rosbag/view.h>
+#include <tf/tfMessage.h>
+#include <tf2_msgs/TFMessage.h>
+#include <tf2/LinearMath/btMatrix3x3.h>
 
 #include <algorithm>
 
@@ -8,6 +11,7 @@
 #include <boost/regex.hpp>
 #include <boost/algorithm/string/regex.hpp>
 #include <boost/date_time/posix_time/posix_time.hpp>
+#include <boost/foreach.hpp>
 
 #include <inttypes.h>
 
@@ -832,4 +836,72 @@ string msg_definition(const ROSMessageFields *rmf, const ROSTypeMap &tm) {
   stringstream ss;
   msg_definition_helper(rmf, tm, 0, &ss);
   return ss.str();
+}
+
+
+void BagTF::buildTree(const rosbag::Bag &bag, const ros::Time &begin,
+                      const ros::Time &end, const string topic) {
+  rosbag::View view(bag, rosbag::TopicQuery(topic), begin, end);
+  // Cache all messages in the selected time interval
+  ros::Duration cache_time = view.getEndTime() - view.getBeginTime();
+  cache_time += ros::Duration(1.0);
+
+  buffer_.reset(new tf2::BufferCore(cache_time));
+  BOOST_FOREACH(const rosbag::MessageInstance &m, view) {
+    tf::tfMessage::Ptr tf_msg;
+    tf2_msgs::TFMessage::Ptr tf2_msg;
+    vector<geometry_msgs::TransformStamped> *transforms;
+
+    if (m.getDataType() == "tf/tfMessage")  {
+      tf_msg = m.instantiate<tf::tfMessage>();
+      transforms = &tf_msg->transforms;
+    } else if (m.getDataType() == "tf2_messages/TFMessage") {
+      tf2_msg = m.instantiate<tf2_msgs::TFMessage>();
+      transforms = &tf2_msg->transforms;
+    } else {
+      throw invalid_argument(string("Unrecognized transform data type: ") + m.getDataType());
+    }
+
+    for (size_t t = 0; t < transforms->size(); ++t) {
+      buffer_->setTransform(transforms->at(t), m.getCallerId());
+    }
+  }
+}
+
+void
+BagTF::lookupTransforms(const string &target, const string &source,
+                        const vector<double> &times,
+                        vector<geometry_msgs::TransformStamped> *tforms) const {
+  if (!buffer_) {
+    throw std::runtime_error("Must call buildTree() before getting frames");
+  }
+  tforms->resize(times.size());
+  for (size_t i = 0; i < tforms->size(); ++i) {
+    double t = times.at(i);
+    tforms->at(i) = buffer_->lookupTransform(target, source, ros::Time(t));
+  }
+}
+
+void
+BagTF::lookupTransforms(const string &target, const string &source,
+                        const vector<double> &times,
+                        vector<geometry_msgs::Pose2D> *tforms) const {
+  if (!buffer_) {
+    throw std::runtime_error("Must call buildTree() before getting frames");
+  }
+  tforms->resize(times.size());
+  for (size_t i = 0; i < tforms->size(); ++i) {
+    double t = times.at(i);
+    geometry_msgs::TransformStamped tform =
+      buffer_->lookupTransform(target, source, ros::Time(t));
+    geometry_msgs::Pose2D &pose = tforms->at(i);
+    pose.x = tform.transform.translation.x;
+    pose.y = tform.transform.translation.y;
+
+    const geometry_msgs::Quaternion &quat = tform.transform.rotation;
+    btMatrix3x3 rot(btQuaternion(quat.x, quat.y, quat.z, quat.w));
+    float roll, pitch, yaw;
+    rot.getRPY(roll, pitch, yaw);
+    pose.theta = yaw;
+  }
 }

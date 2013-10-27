@@ -203,3 +203,21 @@ std::vector<std::string> mexUnwrap(const mxArray *array) {
   }
   return strings;
 }
+
+// Convert a matrix of Matlab doubles to a C++ vector of doubles.  The vector's
+// ith element is the contents of the matrices ith linear index.
+template<>
+std::vector<double> mexUnwrap(const mxArray *array) {
+  std::vector<double> doubles;
+  if (mxIsDouble(array)) {
+    size_t numel = mxGetNumberOfElements(array);
+    doubles.resize(numel);
+    double *data = static_cast<double*>(mxGetPr(array));
+    for (size_t i = 0; i < numel; ++i) {
+      doubles.at(i) = data[i];
+    }
+  } else {
+    error("mexUnwrap<vector<double>>: not a matrix");
+  }
+  return doubles;
+}

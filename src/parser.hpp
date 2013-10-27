@@ -11,6 +11,10 @@
 #include <rosbag/bag.h>
 #include <rosbag/view.h>
 
+#include <tf2/buffer_core.h>
+#include <geometry_msgs/TransformStamped.h>
+#include <geometry_msgs/Pose2D.h>
+
 struct ROSType {
   ROSType() {}
 
@@ -146,5 +150,35 @@ private:
 // Get a string which describes the message (basically "rosmsg show")
 std::string msg_definition(const ROSTypeMap &tm);
 std::string msg_definition(const ROSMessageFields *rmf, const ROSTypeMap &tm);
+
+// Class to deal with transforms from a bag
+class BagTF {
+public:
+  BagTF() : buffer_(NULL) {}
+  ~BagTF() {}
+
+  // Read in all transforms from the bag.  Must be called before using any
+  // other function.
+  void buildTree(const rosbag::Bag &bag,
+                 const ros::Time &begin_time, const ros::Time &end_time,
+                 const std::string topic);
+
+  void lookupTransforms(const std::string &target, const std::string &source,
+                        const std::vector<double> &times,
+                        std::vector<geometry_msgs::TransformStamped> *tforms) const;
+  void lookupTransforms(const std::string &target, const std::string &source,
+                        const std::vector<double> &times,
+                        std::vector<geometry_msgs::Pose2D> *tforms) const;
+
+  std::string allFrames() {
+    if (!buffer_) {
+      throw std::runtime_error("Must call buildTree() before getting frames");
+    }
+    return buffer_->allFramesAsString();
+  }
+
+private:
+  boost::scoped_ptr<tf2::BufferCore> buffer_;
+};
 
 #endif
