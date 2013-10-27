@@ -86,21 +86,13 @@ protected:
 // wrapping C++ basis types in MATLAB arrays
 //*****************************************************************************
 
-// Leave method undefined so compiler error is generated
-template <typename Class, typename Input>
-mxArray* mexWrap(const Input& value);
-
-// specialization to string
 // wraps into a character array
-template<>
-mxArray* mexWrap<std::string>(const std::string& value) {
+mxArray* mexWrap(const std::string& value) {
   return mxCreateString(value.c_str());
 }
 
-// specialization for std::vector<std::string>.
 // wrap into a cell array of strings.
-template<>
-mxArray* mexWrap<std::vector<std::string> >(const std::vector<std::string> &s) {
+mxArray* mexWrap(const std::vector<std::string> &s) {
   mxArray *strings = mxCreateCellMatrix(1, s.size());
   for (int i = 0; i < s.size(); ++i) {
     mxSetCell(strings, i, mxCreateString(s[i].c_str()));
@@ -108,18 +100,15 @@ mxArray* mexWrap<std::vector<std::string> >(const std::vector<std::string> &s) {
   return strings;
 }
 
-// specialization to char
-template<>
-mxArray* mexWrap<char>(const char& value) {
+mxArray* mexWrap(const char& value) {
   mxArray *result = scalar(mxUINT32OR64_CLASS);
   *(char*)mxGetData(result) = value;
   return result;
 }
 
-// Macro to create template specialization for mexWrap() when passed a builtin
+// Macro to create overloads for mexWrap() when passed a builtin
 #define __CREATE_MEX_WRAP(CPP_TYPE, MATLAB_TYPE)        \
-  template<>                                            \
-  mxArray* mexWrap<CPP_TYPE>(const CPP_TYPE& value) {   \
+  mxArray* mexWrap(const CPP_TYPE& value) {             \
     mxArray *result = scalar(MATLAB_TYPE);              \
     *static_cast<CPP_TYPE*>(mxGetData(result)) = value; \
     return result;                                      \
@@ -138,9 +127,7 @@ __CREATE_MEX_WRAP(int64_t, mxINT64_CLASS);
 __CREATE_MEX_WRAP(float, mxSINGLE_CLASS);
 __CREATE_MEX_WRAP(double, mxDOUBLE_CLASS);
 
-// Specialization for bool
-template<>
-mxArray* mexWrap<bool>(const bool& value) {
+mxArray* mexWrap(const bool& value) {
   mxArray *result = mxCreateLogicalMatrix(1, 1);
   *(bool*)mxGetData(result) = value;
   return result;

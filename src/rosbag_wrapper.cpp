@@ -17,14 +17,13 @@ using namespace std;
 
 // Specialization for ros::Time.
 // Return a struct with integer 'sec', 'nsec', fields and a double 'time' field.
-template<>
-mxArray* mexWrap<ros::Time>(const ros::Time &t) {
+mxArray* mexWrap(const ros::Time &t) {
   const char *fields[] = {"sec", "nsec", "time"};
   mxArray *time =
     mxCreateStructMatrix(1, 1, sizeof(fields) / sizeof(fields[0]), fields);
-  mxSetField(time, 0, "sec", mexWrap<uint32_t>(t.sec));
-  mxSetField(time, 0, "nsec", mexWrap<uint32_t>(t.nsec));
-  mxSetField(time, 0, "time", mexWrap<double>(t.sec + 1e-9 * t.nsec));
+  mxSetField(time, 0, "sec", mexWrap(t.sec));
+  mxSetField(time, 0, "nsec", mexWrap(t.nsec));
+  mxSetField(time, 0, "time", mexWrap(t.sec + 1e-9 * t.nsec));
   return time;
 }
 
@@ -80,9 +79,9 @@ mxArray* mexWrapTime(size_t n_elem, const uint8_t *bytes, int *beg) {
   for (int i = 0; i < n_elem; ++i) {
     uint32_t sec = nums[2*i];
     uint32_t nsec = nums[2*i + 1];
-    mxSetField(times, i, "sec", mexWrap<uint32_t>(sec));
-    mxSetField(times, i, "nsec", mexWrap<uint32_t>(nsec));
-    mxSetField(times, i, "time", mexWrap<double>(sec + 1e-9 * nsec));
+    mxSetField(times, i, "sec", mexWrap(sec));
+    mxSetField(times, i, "nsec", mexWrap(nsec));
+    mxSetField(times, i, "time", mexWrap(sec + 1e-9 * nsec));
   }
   *beg += 2 * sizeof(uint32_t) * n_elem;
   return times;
@@ -97,9 +96,9 @@ mxArray* mexWrapDuration(size_t n_elem, const uint8_t *bytes, int *beg) {
   for (int i = 0; i < n_elem; ++i) {
     int32_t sec = nums[2*i];
     int32_t nsec = nums[2*i + 1];
-    mxSetField(times, i, "sec", mexWrap<int32_t>(sec));
-    mxSetField(times, i, "nsec", mexWrap<int32_t>(nsec));
-    mxSetField(times, i, "time", mexWrap<double>(sec + 1e-9 * nsec));
+    mxSetField(times, i, "sec", mexWrap(sec));
+    mxSetField(times, i, "nsec", mexWrap(nsec));
+    mxSetField(times, i, "time", mexWrap(sec + 1e-9 * nsec));
   }
   *beg += 2 * sizeof(int32_t) * n_elem;
   return times;
@@ -320,15 +319,23 @@ public:
     info_.setBag(&bag_);
   }
 
+  void assertArgs(int expect, int actual) {
+    if (expect != actual) {
+      ostringstream ostringstream;
+      ostringstream << "ROSBagWrapper: Expected " << expect << " arguments (got " <<
+        actual << ")";
+      error(ostringstream.str().c_str());
+    }
+  }
+
   void mex(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[]) {
     string cmd = mexUnwrap<string>(prhs[0]);
     if (cmd == "resetView") {
       vector<string> topics = mexUnwrap<vector<string> >(prhs[1]);
       resetView(topics);
     } else if (cmd == "read") {
-      if (nrhs != 3) {
-        error("ROSBagWrapper::mex() Expected two arguments");
-      } else if (!hasNext()) {
+      assertArgs(3, nrhs);
+      if (!hasNext()) {
         error("No more messages for current view");
       }
 
@@ -340,9 +347,7 @@ public:
         read(flatten, &plhs[0], &plhs[1]);
       }
     } else if (cmd == "readAll") {
-      if (nrhs != 3) {
-        error("ROSBagWrapper::mex() Expected two arguments");
-      }
+      assertArgs(3, nrhs);
       bool meta = mexUnwrap<bool>(prhs[1]);
       bool flatten = mexUnwrap<bool>(prhs[2]);
       if (!meta) {
@@ -351,29 +356,23 @@ public:
         readAll(flatten, &plhs[0], &plhs[1]);
       }
     } else if (cmd == "hasNext") {
-      plhs[0] = mexWrap<bool>(hasNext());
+      plhs[0] = mexWrap(hasNext());
     } else if (cmd == "info") {
-      plhs[0] = mexWrap<string>(info_.info());
+      plhs[0] = mexWrap(info_.info());
     } else if (cmd == "definition") {
-      if (nrhs != 3) {
-        error("ROSBagWrapper::mex() Expected two arguments");
-      }
+      assertArgs(3, nrhs);
       string msg_type = mexUnwrap<string>(prhs[1]);
       bool raw = mexUnwrap<bool>(prhs[2]);
-      plhs[0] = mexWrap<string>(info_.definition(msg_type, raw));
+      plhs[0] = mexWrap(info_.definition(msg_type, raw));
     } else if (cmd == "topicType") {
-      if (nrhs != 2) {
-        error("ROSBagWrapper::mex() Expected one argument");
-      }
+      assertArgs(2, nrhs);
       vector<string> topics = mexUnwrap<vector<string> >(prhs[1]);
-      plhs[0] = mexWrap<vector<string> >(info_.topicType(topics));
+      plhs[0] = mexWrap(info_.topicType(topics));
     } else if (cmd == "topics") {
-      if (nrhs != 2) {
-        error("ROSBagWrapper::mex() Expected one argument");
-      }
+      assertArgs(2, nrhs);
       string regexp = mexUnwrap<string>(prhs[1]);
       vector<string> topics = info_.topics(regexp);
-      plhs[0] = mexWrap<vector<string> >(topics);
+      plhs[0] = mexWrap(topics);
     } else {
       throw invalid_argument("ROSBagWrapper::mex() Unknown method");
     }
@@ -403,9 +402,9 @@ public:
     const char *fields[] = {"topic", "time", "datatype"};
     mxArray *val =
       mxCreateStructMatrix(1, 1, sizeof(fields) / sizeof(fields[0]), fields);
-    mxSetField(val, 0, "topic", mexWrap<string>(mi.getTopic()));
-    mxSetField(val, 0, "time", mexWrap<ros::Time>(mi.getTime()));
-    mxSetField(val, 0, "datatype", mexWrap<string>(mi.getDataType()));
+    mxSetField(val, 0, "topic", mexWrap(mi.getTopic()));
+    mxSetField(val, 0, "time", mexWrap(mi.getTime()));
+    mxSetField(val, 0, "datatype", mexWrap(mi.getDataType()));
     *meta = val;
 
     read(flatten, msg);
@@ -470,7 +469,7 @@ public:
     if (cmd == "construct") {
       string bagname = mexUnwrap<string>(prhs[1]);
       handles_[id_ctr_] = new ROSBagWrapper(bagname);
-      plhs[0] = mexWrap<uint64_t>(id_ctr_);
+      plhs[0] = mexWrap(id_ctr_);
       id_ctr_++;
       id_ctr_ = id_ctr_ == 0 ? id_ctr_ + 1 : id_ctr_;
     } else if (cmd == "destruct") {
