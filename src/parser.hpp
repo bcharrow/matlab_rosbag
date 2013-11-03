@@ -159,16 +159,15 @@ public:
 
   // Read in all transforms from the bag.  Must be called before using any
   // other function.
-  void buildTree(const rosbag::Bag &bag,
-                 const ros::Time &begin_time, const ros::Time &end_time,
-                 const std::string topic);
+  void build(const rosbag::Bag &bag, const ros::Time &begin_time,
+             const ros::Time &end_time, const std::string topic);
 
-  void lookupTransforms(const std::string &target, const std::string &source,
-                        const std::vector<double> &times,
-                        std::vector<geometry_msgs::TransformStamped> *tforms) const;
-  void lookupTransforms(const std::string &target, const std::string &source,
-                        const std::vector<double> &times,
-                        std::vector<geometry_msgs::Pose2D> *tforms) const;
+  void transform(const std::string &target, const std::string &source,
+                 const std::vector<double> &times,
+                 std::vector<geometry_msgs::TransformStamped> *tforms) const;
+  void transform(const std::string &target, const std::string &source,
+                 const std::vector<double> &times,
+                 std::vector<geometry_msgs::Pose2D> *tforms) const;
 
   std::string allFrames() {
     if (!buffer_) {
@@ -177,8 +176,21 @@ public:
     return buffer_->allFramesAsString();
   }
 
+  // Remove leading '/' if it exists
+  std::string cleanFrame(const std::string &frame) const {
+    if (frame.size() == 0 || frame[0] != '/') {
+      return frame;
+    } else {
+      return frame.substr(1);
+    }
+  }
+
+  const ros::Time& beginTime() { return begin_; }
+  const ros::Time& endTime() { return end_; }
+
 private:
   boost::scoped_ptr<tf2::BufferCore> buffer_;
+  ros::Time begin_, end_;
 };
 
 #endif

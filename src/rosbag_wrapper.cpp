@@ -1,16 +1,8 @@
-#include "mex.h"
 
-#include <string>
-#include <map>
+#include "rosbag_wrapper.hpp"
 
 #include <wordexp.h>
 
-#include <boost/scoped_ptr.hpp>
-
-#include <rosbag/bag.h>
-#include <rosbag/view.h>
-
-#include "parser.hpp"
 #include "matlab_util.hpp"
 
 using namespace std;
@@ -345,229 +337,220 @@ mxArray* decode_rostype(const ROSTypeMap &typemap, const uint8_t *bytes,
 }
 
 //============================= Mex Interfaces ==============================//
-
-class ROSBagWrapper {
-public:
-  ROSBagWrapper(const string &fname) : path_(fname), view_(NULL) {
-    // Word expansion of filename (e.g. tilde expands to home directory)
-    wordexp_t fname_exp;
-    if (wordexp(fname.c_str(), &fname_exp, 0) != 0) {
-      throw invalid_argument("Invalid filename: " + fname);
-    }
-    string path = fname_exp.we_wordv[0];
-    wordfree(&fname_exp);
-
-    bag_.open(path.c_str(), rosbag::bagmode::Read);
-    info_.setBag(&bag_);
+void MexWrapper::assertArgs(int expect, int actual) {
+  if (expect != actual) {
+    ostringstream ostringstream;
+    ostringstream << "Expected " << expect << " arguments (got " <<
+      actual << ")";
+    error(ostringstream.str().c_str());
   }
+}
 
-  void assertArgs(int expect, int actual) {
-    if (expect != actual) {
-      ostringstream ostringstream;
-      ostringstream << "ROSBagWrapper: Expected " << expect << " arguments (got " <<
-        actual << ")";
-      error(ostringstream.str().c_str());
-    }
+
+InstanceManager::~InstanceManager() {
+  for (map<uint64_t, MexWrapper*>::iterator it = handles_.begin();
+       it != handles_.end();
+       ++it) {
+    delete (*it).second;
   }
-
-  void mex(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[]) {
-    string cmd = mexUnwrap<string>(prhs[0]);
-    if (cmd == "resetView") {
-      vector<string> topics = mexUnwrap<vector<string> >(prhs[1]);
-      resetView(topics);
-    } else if (cmd == "read") {
-      assertArgs(3, nrhs);
-      if (!hasNext()) {
-        error("No more messages for current view");
-      }
-
-      bool meta = mexUnwrap<bool>(prhs[1]);
-      bool flatten = mexUnwrap<bool>(prhs[2]);
-      if (!meta) {
-        read(flatten, &plhs[0]);
-      } else {
-        read(flatten, &plhs[0], &plhs[1]);
-      }
-    } else if (cmd == "readAll") {
-      assertArgs(3, nrhs);
-      bool meta = mexUnwrap<bool>(prhs[1]);
-      bool flatten = mexUnwrap<bool>(prhs[2]);
-      if (!meta) {
-        readAll(flatten, &plhs[0]);
-      } else {
-        readAll(flatten, &plhs[0], &plhs[1]);
-      }
-    } else if (cmd == "hasNext") {
-      plhs[0] = mexWrap(hasNext());
-    } else if (cmd == "info") {
-      plhs[0] = mexWrap(info_.info());
-    } else if (cmd == "definition") {
-      assertArgs(3, nrhs);
-      string msg_type = mexUnwrap<string>(prhs[1]);
-      bool raw = mexUnwrap<bool>(prhs[2]);
-      plhs[0] = mexWrap(info_.definition(msg_type, raw));
-    } else if (cmd == "topicType") {
-      assertArgs(2, nrhs);
-      vector<string> topics = mexUnwrap<vector<string> >(prhs[1]);
-      plhs[0] = mexWrap(info_.topicType(topics));
-    } else if (cmd == "topics") {
-      assertArgs(2, nrhs);
-      string regexp = mexUnwrap<string>(prhs[1]);
-      vector<string> topics = info_.topics(regexp);
-      plhs[0] = mexWrap(topics);
-    } else if (cmd == "buildTree") {
-      assertArgs(4, nrhs);
-      double start = mexUnwrap<double>(prhs[1]);
-      double stop = mexUnwrap<double>(prhs[2]);
-      string topic = mexUnwrap<string>(prhs[3]);
-      transformer_.buildTree(bag_, ros::Time(start), ros::Time(stop), topic);
-    } else if (cmd == "allFrames") {
-      plhs[0] = mexWrap(transformer_.allFrames());
-    } else if (cmd == "lookupTransforms") {
-      assertArgs(5, nrhs);
-      string target_frame = mexUnwrap<string>(prhs[1]);
-      string source_frame = mexUnwrap<string>(prhs[2]);
-      vector<double> times = mexUnwrap<vector<double> >(prhs[3]);
-      bool just2d = mexUnwrap<bool>(prhs[4]);
-
-      if (just2d) {
-        vector<geometry_msgs::Pose2D> transforms;
-        transformer_.lookupTransforms(target_frame, source_frame, times,
-                                      &transforms);
-        plhs[0] = mexWrap(transforms);
-      } else {
-        vector<geometry_msgs::TransformStamped> transforms;
-        transformer_.lookupTransforms(target_frame, source_frame, times,
-                                      &transforms);
-        plhs[0] = mexWrap(transforms);
-      }
-    } else {
-      throw invalid_argument("ROSBagWrapper::mex() Unknown method");
-    }
-  }
-
-  void resetView(const vector<string> &topics) {
-    view_.reset(new rosbag::View(bag_, rosbag::TopicQuery(topics)));
-    iter_ = view_->begin();
-  }
-
-  void read(bool flatten, mxArray **msg) {
-    const rosbag::MessageInstance &mi = *iter_;
-
-    const ROSTypeMap *map = deser_.getTypeMap(mi);
-    size_t sz = mi.size();
-    boost::scoped_array<uint8_t> bytes(new uint8_t[sz]);
-    ros::serialization::IStream stream(bytes.get(), sz);
-    mi.write(stream);
-
-    *msg = decode_rostype(*map, bytes.get(), flatten);
-
-    ++iter_;
-  }
-
-  void read(bool flatten, mxArray **msg, mxArray **meta) {
-    const rosbag::MessageInstance &mi = *iter_;
-    const char *fields[] = {"topic", "time", "datatype"};
-    mxArray *val =
-      mxCreateStructMatrix(1, 1, sizeof(fields) / sizeof(fields[0]), fields);
-    mxSetField(val, 0, "topic", mexWrap(mi.getTopic()));
-    mxSetField(val, 0, "time", mexWrap(mi.getTime()));
-    mxSetField(val, 0, "datatype", mexWrap(mi.getDataType()));
-    *meta = val;
-
-    read(flatten, msg);
-  }
-
-  void readAll(bool flatten, mxArray **msg) {
-    vector<mxArray*> msgs;
-    while (hasNext()) {
-      msgs.push_back(NULL);
-      read(flatten, &msgs.back());
-    }
-
-    *msg = mxCreateCellMatrix(1, msgs.size());
-    for (int i = 0; i < msgs.size(); ++i) {
-      mxSetCell(*msg, i, msgs[i]);
-    }
-  }
-
-  void readAll(bool flatten, mxArray **msg, mxArray **meta) {
-    vector<mxArray*> msgs, metas;
-    while (hasNext()) {
-      msgs.push_back(NULL);
-      metas.push_back(NULL);
-      read(flatten, &msgs.back(), &metas.back());
-    }
-    *msg = mxCreateCellMatrix(1, msgs.size());
-    *meta = mxCreateCellMatrix(1, metas.size());
-    for (int i = 0; i < msgs.size(); ++i) {
-      mxSetCell(*msg, i, msgs[i]);
-      mxSetCell(*meta, i, metas[i]);
-    }
-  }
-
-  bool hasNext() const {
-    return view_ != NULL && iter_ != view_->end();
-  }
-
-private:
-  string path_;
-  rosbag::Bag bag_;
-  BagInfo info_;
-  BagTF transformer_;
-  boost::scoped_ptr<rosbag::View> view_;
-  rosbag::View::iterator iter_;
-  BagDeserializer deser_;
-};
+}
 
 // Manage separate instances of bags
-class InstanceManager {
-public:
-  InstanceManager() : id_ctr_(1) {}
-
-  ~InstanceManager() {
-    for (map<uint64_t, ROSBagWrapper*>::iterator it = handles_.begin();
-         it != handles_.end();
-         ++it) {
-      delete (*it).second;
-    }
-  }
-
-  void mex(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[]) {
-    string cmd = mexUnwrap<string>(prhs[0]);
-    if (cmd == "construct") {
-      string bagname = mexUnwrap<string>(prhs[1]);
+void InstanceManager::mex(int nlhs, mxArray *plhs[],
+                          int nrhs, const mxArray *prhs[]) {
+  string cmd = mexUnwrap<string>(prhs[0]);
+  if (cmd == "construct") {
+    string classname = mexUnwrap<string>(prhs[1]);
+    if (classname == "ROSBagWrapper") {
+      string bagname = mexUnwrap<string>(prhs[2]);
       handles_[id_ctr_] = new ROSBagWrapper(bagname);
-      plhs[0] = mexWrap(id_ctr_);
-      id_ctr_++;
-      id_ctr_ = id_ctr_ == 0 ? id_ctr_ + 1 : id_ctr_;
-    } else if (cmd == "destruct") {
-      uint64_t id = mexUnwrap<uint64_t>(prhs[1]);
-      bool check_exists = nrhs == 3 ? mexUnwrap<bool>(prhs[2]) : true;
-      if (check_exists) {
-        get(id);
-      }
-      delete handles_[id];
-      handles_.erase(id);
+    } else if (classname == "TFWrapper") {
+      handles_[id_ctr_] = new TFWrapper();
     } else {
-      throw invalid_argument("InstanceManger::mex() Unknown method");
+      throw invalid_argument(string("Unknown class: ") + classname);
     }
+    plhs[0] = mexWrap(id_ctr_);
+    id_ctr_++;
+    id_ctr_ = id_ctr_ == 0 ? id_ctr_ + 1 : id_ctr_;
+  } else if (cmd == "destruct") {
+    uint64_t id = mexUnwrap<uint64_t>(prhs[1]);
+    bool check_exists = nrhs == 3 ? mexUnwrap<bool>(prhs[2]) : true;
+    if (check_exists) {
+      get(id);
+    }
+    delete handles_[id];
+    handles_.erase(id);
+  } else {
+    throw invalid_argument("InstanceManger::mex() Unknown method");
+  }
+}
+
+static InstanceManager g_manager;
+
+ROSBagWrapper::ROSBagWrapper(const string &fname) : path_(fname), view_(NULL) {
+  // Word expansion of filename (e.g. tilde expands to home directory)
+  wordexp_t fname_exp;
+  if (wordexp(fname.c_str(), &fname_exp, 0) != 0) {
+    throw invalid_argument("Invalid filename: " + fname);
+  }
+  string path = fname_exp.we_wordv[0];
+  wordfree(&fname_exp);
+
+  bag_.open(path.c_str(), rosbag::bagmode::Read);
+  info_.setBag(&bag_);
+}
+
+void ROSBagWrapper::resetView(const vector<string> &topics) {
+  view_.reset(new rosbag::View(bag_, rosbag::TopicQuery(topics)));
+  iter_ = view_->begin();
+}
+
+void ROSBagWrapper::read(bool flatten, mxArray **msg) {
+  const rosbag::MessageInstance &mi = *iter_;
+
+  const ROSTypeMap *map = deser_.getTypeMap(mi);
+  size_t sz = mi.size();
+  boost::scoped_array<uint8_t> bytes(new uint8_t[sz]);
+  ros::serialization::IStream stream(bytes.get(), sz);
+  mi.write(stream);
+
+  *msg = decode_rostype(*map, bytes.get(), flatten);
+
+  ++iter_;
+}
+
+void ROSBagWrapper::read(bool flatten, mxArray **msg, mxArray **meta) {
+  const rosbag::MessageInstance &mi = *iter_;
+  const char *fields[] = {"topic", "time", "datatype"};
+  mxArray *val =
+    mxCreateStructMatrix(1, 1, sizeof(fields) / sizeof(fields[0]), fields);
+  mxSetField(val, 0, "topic", mexWrap(mi.getTopic()));
+  mxSetField(val, 0, "time", mexWrap(mi.getTime()));
+  mxSetField(val, 0, "datatype", mexWrap(mi.getDataType()));
+  *meta = val;
+
+  read(flatten, msg);
+}
+
+void ROSBagWrapper::readAll(bool flatten, mxArray **msg) {
+  vector<mxArray*> msgs;
+  while (hasNext()) {
+    msgs.push_back(NULL);
+    read(flatten, &msgs.back());
   }
 
-  ROSBagWrapper* get(uint64_t id) {
-    if (handles_.count(id) == 0) {
-      throw invalid_argument("InstanceManager::get() Invalid handle");
-    } else {
-      return handles_[id];
-    }
+  *msg = mxCreateCellMatrix(1, msgs.size());
+  for (int i = 0; i < msgs.size(); ++i) {
+    mxSetCell(*msg, i, msgs[i]);
   }
+}
 
-private:
-  uint64_t id_ctr_;                  /**< Next valid ID */
-  map<uint64_t, ROSBagWrapper*> handles_;
-};
+void ROSBagWrapper::readAll(bool flatten, mxArray **msg, mxArray **meta) {
+  vector<mxArray*> msgs, metas;
+  while (hasNext()) {
+    msgs.push_back(NULL);
+    metas.push_back(NULL);
+    read(flatten, &msgs.back(), &metas.back());
+  }
+  *msg = mxCreateCellMatrix(1, msgs.size());
+  *meta = mxCreateCellMatrix(1, metas.size());
+  for (int i = 0; i < msgs.size(); ++i) {
+    mxSetCell(*msg, i, msgs[i]);
+    mxSetCell(*meta, i, metas[i]);
+  }
+}
 
-static InstanceManager manager;
+void ROSBagWrapper::mex(int nlhs, mxArray *plhs[], int nrhs,
+                        const mxArray *prhs[]) {
+  string cmd = mexUnwrap<string>(prhs[0]);
+  if (cmd == "resetView") {
+    vector<string> topics = mexUnwrap<vector<string> >(prhs[1]);
+    resetView(topics);
+  } else if (cmd == "read") {
+    assertArgs(3, nrhs);
+    if (!hasNext()) {
+      error("No more messages for current view");
+    }
+
+    bool meta = mexUnwrap<bool>(prhs[1]);
+    bool flatten = mexUnwrap<bool>(prhs[2]);
+    if (!meta) {
+      read(flatten, &plhs[0]);
+    } else {
+      read(flatten, &plhs[0], &plhs[1]);
+    }
+  } else if (cmd == "readAll") {
+    assertArgs(3, nrhs);
+    bool meta = mexUnwrap<bool>(prhs[1]);
+    bool flatten = mexUnwrap<bool>(prhs[2]);
+    if (!meta) {
+      readAll(flatten, &plhs[0]);
+    } else {
+      readAll(flatten, &plhs[0], &plhs[1]);
+    }
+  } else if (cmd == "hasNext") {
+    plhs[0] = mexWrap(hasNext());
+  } else if (cmd == "info") {
+    plhs[0] = mexWrap(info_.info());
+  } else if (cmd == "definition") {
+    assertArgs(3, nrhs);
+    string msg_type = mexUnwrap<string>(prhs[1]);
+    bool raw = mexUnwrap<bool>(prhs[2]);
+    plhs[0] = mexWrap(info_.definition(msg_type, raw));
+  } else if (cmd == "topicType") {
+    assertArgs(2, nrhs);
+    vector<string> topics = mexUnwrap<vector<string> >(prhs[1]);
+    plhs[0] = mexWrap(info_.topicType(topics));
+  } else if (cmd == "topics") {
+    assertArgs(2, nrhs);
+    string regexp = mexUnwrap<string>(prhs[1]);
+    vector<string> topics = info_.topics(regexp);
+    plhs[0] = mexWrap(topics);
+  } else {
+    throw invalid_argument("ROSBagWrapper::mex() Unknown method");
+  }
+}
+
+void TFWrapper::mex(int nlhs, mxArray *plhs[],
+                    int nrhs, const mxArray *prhs[]) {
+  string cmd = mexUnwrap<string>(prhs[0]);
+
+  if (cmd == "build") {
+    assertArgs(5, nrhs);
+    int bag_id = mexUnwrap<int>(prhs[1]);
+    double start = mexUnwrap<double>(prhs[2]);
+    double stop = mexUnwrap<double>(prhs[3]);
+    string topic = mexUnwrap<string>(prhs[4]);
+    const ROSBagWrapper* bag;
+    bag = static_cast<ROSBagWrapper*>(g_manager.get(bag_id));
+    if (bag == NULL) {
+      throw invalid_argument("TFWrapper::mex() Bad reference to bag");
+    }
+    transformer_.build(bag->bag(), ros::Time(start), ros::Time(stop), topic);
+    plhs[0] = mexWrap(transformer_.beginTime());
+    plhs[1] = mexWrap(transformer_.endTime());
+  } else if (cmd == "allFrames") {
+    plhs[0] = mexWrap(transformer_.allFrames());
+  } else if (cmd == "transform") {
+    assertArgs(5, nrhs);
+    string target_frame = mexUnwrap<string>(prhs[1]);
+    string source_frame = mexUnwrap<string>(prhs[2]);
+    vector<double> times = mexUnwrap<vector<double> >(prhs[3]);
+    bool just2d = mexUnwrap<bool>(prhs[4]);
+
+    if (just2d) {
+      vector<geometry_msgs::Pose2D> transforms;
+      transformer_.transform(target_frame, source_frame, times, &transforms);
+      plhs[0] = mexWrap(transforms);
+    } else {
+      vector<geometry_msgs::TransformStamped> transforms;
+      transformer_.transform(target_frame, source_frame, times, &transforms);
+      plhs[0] = mexWrap(transforms);
+    }
+  } else {
+    throw invalid_argument("TFWrapper::mex() Unknown method");
+  }
+}
 
 void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[]) {
   if (nrhs < 1) {
@@ -576,9 +559,8 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[]) {
 
   uint64_t id = mexUnwrap<uint64_t>(prhs[0]);
   if (id == 0) {
-    manager.mex(nlhs, plhs, nrhs - 1, prhs + 1);
+    g_manager.mex(nlhs, plhs, nrhs - 1, prhs + 1);
   } else {
-    ROSBagWrapper *wrapper = manager.get(id);
-    wrapper->mex(nlhs, plhs, nrhs - 1, prhs + 1);
+    g_manager.get(id)->mex(nlhs, plhs, nrhs - 1, prhs + 1);
   }
 }

@@ -36,6 +36,8 @@
 
 #include <string>
 #include <sstream>
+#include <vector>
+#include "stdint.h"
 
 extern "C" {
 #include <mex.h>

@@ -838,10 +838,13 @@ string msg_definition(const ROSMessageFields *rmf, const ROSTypeMap &tm) {
   return ss.str();
 }
 
+//================================== BagTF ==================================//
 
-void BagTF::buildTree(const rosbag::Bag &bag, const ros::Time &begin,
-                      const ros::Time &end, const string topic) {
+void BagTF::build(const rosbag::Bag &bag, const ros::Time &begin,
+                  const ros::Time &end, const string topic) {
   rosbag::View view(bag, rosbag::TopicQuery(topic), begin, end);
+  begin_ = view.getBeginTime();
+  end_ = view.getEndTime();
   // Cache all messages in the selected time interval
   ros::Duration cache_time = view.getEndTime() - view.getBeginTime();
   cache_time += ros::Duration(1.0);
@@ -868,13 +871,15 @@ void BagTF::buildTree(const rosbag::Bag &bag, const ros::Time &begin,
   }
 }
 
-void
-BagTF::lookupTransforms(const string &target, const string &source,
-                        const vector<double> &times,
-                        vector<geometry_msgs::TransformStamped> *tforms) const {
+void BagTF::transform(const string &target_in, const string &source_in,
+                      const vector<double> &times,
+                      vector<geometry_msgs::TransformStamped> *tforms) const {
   if (!buffer_) {
-    throw std::runtime_error("Must call buildTree() before getting frames");
+    throw std::runtime_error("Must call build() before getting frames");
   }
+  string target = cleanFrame(target_in);
+  string source = cleanFrame(source_in);
+
   tforms->resize(times.size());
   for (size_t i = 0; i < tforms->size(); ++i) {
     double t = times.at(i);
@@ -882,13 +887,15 @@ BagTF::lookupTransforms(const string &target, const string &source,
   }
 }
 
-void
-BagTF::lookupTransforms(const string &target, const string &source,
-                        const vector<double> &times,
-                        vector<geometry_msgs::Pose2D> *tforms) const {
+void BagTF::transform(const string &target_in, const string &source_in,
+                      const vector<double> &times,
+                      vector<geometry_msgs::Pose2D> *tforms) const {
   if (!buffer_) {
-    throw std::runtime_error("Must call buildTree() before getting frames");
+    throw std::runtime_error("Must call build() before getting frames");
   }
+  string target = cleanFrame(target_in);
+  string source = cleanFrame(source_in);
+
   tforms->resize(times.size());
   for (size_t i = 0; i < tforms->size(); ++i) {
     double t = times.at(i);
