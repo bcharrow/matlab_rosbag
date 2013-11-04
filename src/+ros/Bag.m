@@ -6,6 +6,13 @@ classdef Bag
         cleanup = @(x) x;
     end
 
+    methods(Static)
+        function [obj] = load(path)
+            % Construct a bag using path.  Only exists because it works
+            % with Matlab's autocomplete.
+            obj = ros.Bag(path);
+        end
+    end
     methods
         function [obj] = Bag(path)
             [~, ~, endian] = computer;
@@ -22,7 +29,7 @@ classdef Bag
             obj.cleanup = onCleanup(@() rosbag_wrapper(uint64(0), 'destruct', h, false));
         end
 
-        function [] = resetView(obj, topics)
+        function [obj] = resetView(obj, topics)
         % Reset which topics to read messages from
         %
         % resetView(topics) jumps to the beginning of the bagfile and changes
@@ -77,7 +84,7 @@ classdef Bag
         % [...] = readAll(topics) resets the view to 'topics' and then reads
         % all messages.
             if nargin > 1
-                obj.resetView(topics)
+                obj.resetView(topics);
             end
 
             if nargin < 3
