@@ -68,10 +68,10 @@ classdef TFTree < handle
             frames = rosbag_wrapper(obj.handle, 'allFrames');
         end
 
-        function [transforms] = transform(obj, target_frame, source_frame, times, just2d)
+        function [transforms] = lookup(obj, target_frame, source_frame, times, just2d)
         % Get the transformation(s) between two frames at various points in time
         %
-        % [transforms] = transform(target_frame, source_frame, times)
+        % [transforms] = lookup(target_frame, source_frame, times)
         % returns a struct array whose ith element is the 3D transform which
         % projects data in source_frame to target_frame at times(i).
         %
@@ -84,7 +84,7 @@ classdef TFTree < handle
         else
             just2d = logical(just2d);
         end
-        transforms = rosbag_wrapper(obj.handle, 'transform', target_frame, ...
+        transforms = rosbag_wrapper(obj.handle, 'lookup', target_frame, ...
             source_frame, times, just2d);
         end
     end

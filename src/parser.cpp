@@ -871,9 +871,9 @@ void BagTF::build(const rosbag::Bag &bag, const ros::Time &begin,
   }
 }
 
-void BagTF::transform(const string &target_in, const string &source_in,
-                      const vector<double> &times,
-                      vector<geometry_msgs::TransformStamped> *tforms) const {
+void BagTF::lookup(const string &target_in, const string &source_in,
+                   const vector<double> &times,
+                   vector<geometry_msgs::TransformStamped> *tforms) const {
   if (!buffer_) {
     throw std::runtime_error("Must call build() before getting frames");
   }
@@ -887,9 +887,9 @@ void BagTF::transform(const string &target_in, const string &source_in,
   }
 }
 
-void BagTF::transform(const string &target_in, const string &source_in,
-                      const vector<double> &times,
-                      vector<geometry_msgs::Pose2D> *tforms) const {
+void BagTF::lookup(const string &target_in, const string &source_in,
+                   const vector<double> &times,
+                   vector<geometry_msgs::Pose2D> *tforms) const {
   if (!buffer_) {
     throw std::runtime_error("Must call build() before getting frames");
   }

@@ -531,7 +531,7 @@ void TFWrapper::mex(int nlhs, mxArray *plhs[],
     plhs[1] = mexWrap(transformer_.endTime());
   } else if (cmd == "allFrames") {
     plhs[0] = mexWrap(transformer_.allFrames());
-  } else if (cmd == "transform") {
+  } else if (cmd == "lookup") {
     assertArgs(5, nrhs);
     string target_frame = mexUnwrap<string>(prhs[1]);
     string source_frame = mexUnwrap<string>(prhs[2]);
@@ -540,11 +540,11 @@ void TFWrapper::mex(int nlhs, mxArray *plhs[],
 
     if (just2d) {
       vector<geometry_msgs::Pose2D> transforms;
-      transformer_.transform(target_frame, source_frame, times, &transforms);
+      transformer_.lookup(target_frame, source_frame, times, &transforms);
       plhs[0] = mexWrap(transforms);
     } else {
       vector<geometry_msgs::TransformStamped> transforms;
-      transformer_.transform(target_frame, source_frame, times, &transforms);
+      transformer_.lookup(target_frame, source_frame, times, &transforms);
       plhs[0] = mexWrap(transforms);
     }
   } else {
