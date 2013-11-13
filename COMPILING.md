@@ -5,7 +5,9 @@ In order to compile rosbag_wrapper into a mex function so that it can be used on
 Even if you only want to compile code for your machine, Matlab comes with its own version of several libraries used by ROS -- most notably Boost -- and these versions may be incompatible with your system version.  So, you'll either need to statically compile boost, or compile and link against the version that Matlab uses.
 
 ## Using ROS Groovy
-You need to install each of these things in order.
+You need to install each of these things in order.  First, make the workspace:
+
+    mkdir ~/matbag_ws && cd ~/matbag_ws
 
 ### [Boost](http://www.boost.org/users/download/)
 Download and unpack the latest version of Boost and go to that directory.
@@ -28,8 +30,7 @@ Install the [rosinstall_generator](http://wiki.ros.org/rosinstall_generator#Inst
 
 Generate install file and download necessary packages
 
-    mkdir ~/matbag_ws && cd ~/matbag_ws
-    rosinstall_generator rosbag tf2 tf --deps > base.rosinstall
+    rosinstall_generator --rosdistro groovy --deps rosbag tf2 tf > base.rosinstall
     rosinstall --catkin -n src base.rosinstall
     rm src/CMakeLists.txt
     src/catkin/bin/catkin_init_workspace src
