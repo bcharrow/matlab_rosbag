@@ -148,10 +148,14 @@ TEST(ROSMessageFields, constant_string) {
   EXPECT_EQ(string("ab9"), fields.at(0).value);
 
   uint8_t bytes[] = {'a', 'b', '9'};
-  EXPECT_EQ(3, fields.at(0).bytes.size());
-  EXPECT_EQ(bytes[0], fields.at(0).bytes[0]);
-  EXPECT_EQ(bytes[1], fields.at(0).bytes[1]);
-  EXPECT_EQ(bytes[2], fields.at(0).bytes[2]);
+  EXPECT_EQ(7, fields.at(0).bytes.size());
+  EXPECT_EQ(3, fields.at(0).bytes[0]);
+  EXPECT_EQ(0, fields.at(0).bytes[1]);
+  EXPECT_EQ(0, fields.at(0).bytes[2]);
+  EXPECT_EQ(0, fields.at(0).bytes[3]);
+  EXPECT_EQ(bytes[0], fields.at(0).bytes[4]);
+  EXPECT_EQ(bytes[1], fields.at(0).bytes[5]);
+  EXPECT_EQ(bytes[2], fields.at(0).bytes[6]);
 }
 
 TEST(ROSMessageFields, constant_comments) {
@@ -217,86 +221,6 @@ TEST(ROSTypeMap, parse_pose_def) {
   ASSERT_TRUE((type = rtm.getMsgFields(string("geometry_msgs/Point"))) != NULL);
   EXPECT_EQ(3, type->nfields());
 }
-
-TEST(ROSTypeMap, constant) {
-  ROSTypeMap rtm;
-  string def("string constant = as\n\n");
-  rtm.populate(def);
-
-  const ROSMessageFields *msg_type;
-  ASSERT_TRUE((msg_type = rtm.getMsgFields(string("0-root"))) != NULL);
-  ROSMessage msg(msg_type->type());
-  msg.populate(rtm, NULL, 0);
-
-  const ROSMessage::Field &constant = msg.lookupField("constant");
-  EXPECT_EQ(1, constant.size());
-  EXPECT_EQ(1, constant.at(0).bytes().size());
-  const vector<uint8_t>& bytes = constant.at(0).bytes().at(0);
-  EXPECT_EQ(2, bytes.size());
-  EXPECT_EQ('a', bytes[0]);
-  EXPECT_EQ('s', bytes[1]);
-
-}
-
-
-TEST(ROSTypeMap, single_string) {
-  ROSTypeMap rtm;
-  string def("string test\n\n");
-  rtm.populate(def);
-
-  const ROSMessageFields *msg_type;
-  ASSERT_TRUE((msg_type = rtm.getMsgFields(string("0-root"))) != NULL);
-  ROSMessage msg(msg_type->type());
-
-  uint8_t bytes[] = {2, 0, 0, 0, 'h', 'i'};
-  int beg = 0;
-  msg.populate(rtm, bytes, &beg);
-
-  const ROSMessage::Field &test = msg.lookupField(string("test"));
-  ASSERT_EQ(1, test.size());
-  EXPECT_EQ(beg, 6);
-  EXPECT_EQ('h', test.at(0).bytes()[0][0]);
-  EXPECT_EQ('i', test.at(0).bytes()[0][1]);
-}
-
-TEST(ROSTypeMap, varlen_array) {
-  ROSTypeMap rtm;
-  string def(
-"Point[] points\n"
-"\n"
-"================================================================================\n"
-"MSG: geometry_msgs/Point\n"
-"uint8 x\n"
-"int32 y\n");
-  rtm.populate(def);
-
-  const ROSMessageFields *msg_type;
-  ASSERT_TRUE((msg_type = rtm.getMsgFields(string("0-root"))) != NULL);
-  ROSMessage msg(msg_type->type());
-
-  uint8_t bytes[] = {2, 0, 0, 0,
-                     5, 1, 0, 0, 0,
-                     6, 0, 1, 0, 1};
-  int beg = 0;
-  msg.populate(rtm, bytes, &beg);
-
-  const ROSMessage::Field &points = msg.lookupField(string("points"));
-  ASSERT_EQ(2, points.size());
-  EXPECT_EQ(beg, 14);
-
-  EXPECT_EQ(5, points.at(0).lookupField("x").at(0).bytes()[0][0]);
-  EXPECT_EQ(1, points.at(0).lookupField("y").at(0).bytes()[0][0]);
-  EXPECT_EQ(0, points.at(0).lookupField("y").at(0).bytes()[0][1]);
-  EXPECT_EQ(0, points.at(0).lookupField("y").at(0).bytes()[0][2]);
-  EXPECT_EQ(0, points.at(0).lookupField("y").at(0).bytes()[0][3]);
-
-  EXPECT_EQ(6, points.at(1).lookupField("x").at(0).bytes()[0][0]);
-  EXPECT_EQ(0, points.at(1).lookupField("y").at(0).bytes()[0][0]);
-  EXPECT_EQ(1, points.at(1).lookupField("y").at(0).bytes()[0][1]);
-  EXPECT_EQ(0, points.at(1).lookupField("y").at(0).bytes()[0][2]);
-  EXPECT_EQ(1, points.at(1).lookupField("y").at(0).bytes()[0][3]);
-}
-
 
 // Run all the tests that were declared with TEST()
 int main(int argc, char **argv){

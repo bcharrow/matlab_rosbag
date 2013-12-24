@@ -13,12 +13,14 @@
   <build_depend>rostime</build_depend>
   <build_depend>roscpp_serialization</build_depend>
   <build_depend>roscpp</build_depend>
+  <build_depend>tf2</build_depend>
 
   <run_depend>rosbag</run_depend>
   <run_depend>rosconsole</run_depend>
   <run_depend>rostime</run_depend>
   <run_depend>roscpp_serialization</run_depend>
   <run_depend>roscpp</run_depend>
+  <run_depend>tf2</run_depend>
 
   <test_depend>gtest</test_depend>
 </package>
