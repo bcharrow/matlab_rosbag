@@ -374,6 +374,10 @@ void ROSTypeMap::populate(const string &msg_def) {
       throw;
     }
 
+    // If multiple definitions, need to remove previous rmf
+    if (type_map_.count(rmf->type().name) != 0) {
+      delete type_map_[rmf->type().name];
+    }
     type_map_[rmf->type().name] = rmf;
     resolver_[rmf->type().msg_name].push_back(rmf->type().pkg_name);
 
@@ -395,8 +399,13 @@ void ROSTypeMap::populate(const string &msg_def) {
         if (qualified_names.size() == 1) {
           rmf->setFieldPkgName(i, qualified_names[0]);
         } else {
-          throw invalid_argument("Multiple types for " + field.type.msg_name +
-                                 "\nMessage def: \n" + msg_def);
+          if (qualified_names.size() == 0) {
+            throw invalid_argument("No definition for " + field.type.msg_name +
+                                   "\nMessage def: \n" + msg_def);
+          } else {
+            throw invalid_argument("Multiple definitions for " + field.type.msg_name +
+                                   "\nMessage def: \n" + msg_def);
+          }
         }
       }
     }
@@ -430,8 +439,8 @@ BagDeserializer::~BagDeserializer() {
 const ROSTypeMap* BagDeserializer::getTypeMap(const rosbag::MessageInstance &m) {
   if (type_maps_.count(m.getDataType()) == 0) {
     ROSTypeMap *rtm = new ROSTypeMap();
-    rtm->populate(m.getMessageDefinition());
     type_maps_[m.getDataType()] = rtm;
+    rtm->populate(m.getMessageDefinition());
   }
 
   return type_maps_[m.getDataType()];
@@ -645,15 +654,8 @@ void BagInfo::readTypeMaps(const vector<const rosbag::ConnectionInfo*> &connecti
       seen.insert(ci->datatype);
       ROSTypeMap *rtm = new ROSTypeMap();
       type_maps_[ci->datatype] = rtm;
-      try {
-        rtm->populate(ci->msg_def);
-      } catch (exception &e) {
-        for (map<string, ROSTypeMap*>::iterator it = type_maps_.begin();
-             it != type_maps_.end(); ++it) {
-          delete it->second;
-        }
-        throw;
-      }
+      // rtm is in type_maps_ so if populate throws destructor will free it
+      rtm->populate(ci->msg_def);
     }
     if (topic_types_.find(ci->topic) == topic_types_.end()) {
       topic_types_[ci->topic] = ci->datatype;

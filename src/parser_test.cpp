@@ -77,6 +77,33 @@ TEST(ROSTypeMap, bad_def) {
   ASSERT_THROW(rtm.populate(def), invalid_argument);
 }
 
+TEST(ROSTypeMap, no_embedded_defs) {
+  ROSTypeMap rtm;
+  string def("Header header\n"
+             "\n"
+             "geometry_msgs/Quaternion orientation\n"
+             "float64[9] orientation_covariance\n"
+             "\n"
+             "geometry_msgs/Vector3 angular_velocity\n"
+             "float64[9] angular_velocity_covariance\n"
+             "\n"
+             "geometry_msgs/Vector3 linear_acceleration\n"
+             "float64[9] linear_acceleration_covariance\n");
+  ASSERT_THROW(rtm.populate(def), invalid_argument);
+}
+
+TEST(ROSTypeMap, multiple_embedded_defs) {
+  ROSTypeMap rtm;
+  string def("Header header\n"
+             "==\n"
+             "MSG: std_msgs/Header\n"
+             "uint8 field\n"
+             "==\n"
+             "MSG: std_msgs/Header\n"
+             "uint8 field\n");
+  ASSERT_THROW(rtm.populate(def), invalid_argument);
+}
+
 TEST(ROSMessageFields, parse_quaternion_def) {
   ROSMessageFields mt;
   string
