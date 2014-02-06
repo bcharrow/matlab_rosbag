@@ -2,10 +2,12 @@ cmake_minimum_required(VERSION 2.8.3)
 project(matlab_rosbag)
 find_package(catkin REQUIRED COMPONENTS rosbag tf2)
 
+find_package(Eigen REQUIRED)
+
 catkin_package(CATKIN_DEPENDS
   rosbag rostime roscpp_serialization roscpp tf2)
 
-include_directories(${catkin_INCLUDE_DIRS})
+include_directories(${catkin_INCLUDE_DIRS} ${EIGEN_INCLUDE_DIRS})
 
 find_package(Boost REQUIRED COMPONENTS regex)
 

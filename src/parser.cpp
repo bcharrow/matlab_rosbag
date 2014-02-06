@@ -1,9 +1,8 @@
 #include "parser.hpp"
 
-#include <rosbag/view.h>
-#include <tf/tfMessage.h>
+#include <Eigen/Geometry>
+
 #include <tf2_msgs/TFMessage.h>
-#include <tf2/LinearMath/btMatrix3x3.h>
 
 #include <algorithm>
 
@@ -853,15 +852,12 @@ void BagTF::build(const rosbag::Bag &bag, const ros::Time &begin,
 
   buffer_.reset(new tf2::BufferCore(cache_time));
   BOOST_FOREACH(const rosbag::MessageInstance &m, view) {
-    tf::tfMessage::Ptr tf_msg;
     tf2_msgs::TFMessage::Ptr tf2_msg;
     vector<geometry_msgs::TransformStamped> *transforms;
 
     const string &datatype = m.getDataType();
-    if (datatype == ros::message_traits::datatype<tf::tfMessage>()) {
-      tf_msg = m.instantiate<tf::tfMessage>();
-      transforms = &tf_msg->transforms;
-    } else if (datatype == ros::message_traits::datatype<tf2_msgs::TFMessage>()) {
+    if (datatype == std::string("tf/tfMessage") ||
+        datatype == ros::message_traits::datatype<tf2_msgs::TFMessage>()) {
       tf2_msg = m.instantiate<tf2_msgs::TFMessage>();
       transforms = &tf2_msg->transforms;
     } else {
@@ -890,6 +886,12 @@ void BagTF::lookup(const string &target_in, const string &source_in,
   }
 }
 
+double getYaw(geometry_msgs::Quaternion &msg) {
+  Eigen::Quaternion<double> q(msg.w, msg.x, msg.y, msg.z);
+  Eigen::Vector3d rpy = q.toRotationMatrix().eulerAngles(0, 1, 2);
+  return rpy(2);
+}
+
 void BagTF::lookup(const string &target_in, const string &source_in,
                    const vector<double> &times,
                    vector<geometry_msgs::Pose2D> *tforms) const {
@@ -907,11 +909,6 @@ void BagTF::lookup(const string &target_in, const string &source_in,
     geometry_msgs::Pose2D &pose = tforms->at(i);
     pose.x = tform.transform.translation.x;
     pose.y = tform.transform.translation.y;
-
-    const geometry_msgs::Quaternion &quat = tform.transform.rotation;
-    btMatrix3x3 rot(btQuaternion(quat.x, quat.y, quat.z, quat.w));
-    float roll, pitch, yaw;
-    rot.getRPY(roll, pitch, yaw);
-    pose.theta = yaw;
+    pose.theta = getYaw(tform.transform.rotation);
   }
 }

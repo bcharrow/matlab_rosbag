@@ -1,5 +1,5 @@
 INSTALL="../../../install/lib"
-INCLUDE="-I../../../install/include -I/usr/local/include"
+INCLUDE="-I../../../install/include $(pkg-config --cflags eigen3)"
 LINK=""
 if [[ $(uname -s) == "Linux" ]]; then
     LINK="${LINK} -lrt"
