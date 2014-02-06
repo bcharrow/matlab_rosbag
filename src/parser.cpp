@@ -857,14 +857,15 @@ void BagTF::build(const rosbag::Bag &bag, const ros::Time &begin,
     tf2_msgs::TFMessage::Ptr tf2_msg;
     vector<geometry_msgs::TransformStamped> *transforms;
 
-    if (m.getDataType() == "tf/tfMessage")  {
+    const string &datatype = m.getDataType();
+    if (datatype == ros::message_traits::datatype<tf::tfMessage>()) {
       tf_msg = m.instantiate<tf::tfMessage>();
       transforms = &tf_msg->transforms;
-    } else if (m.getDataType() == "tf2_messages/TFMessage") {
+    } else if (datatype == ros::message_traits::datatype<tf2_msgs::TFMessage>()) {
       tf2_msg = m.instantiate<tf2_msgs::TFMessage>();
       transforms = &tf2_msg->transforms;
     } else {
-      throw invalid_argument(string("Unrecognized transform data type: ") + m.getDataType());
+      throw invalid_argument(string("Unrecognized transform data type: ") + datatype);
     }
 
     for (size_t t = 0; t < transforms->size(); ++t) {
