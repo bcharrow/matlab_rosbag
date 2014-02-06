@@ -43,7 +43,9 @@ class ROSBagWrapper : public MexWrapper {
 public:
   ROSBagWrapper(const std::string &fname);
 
-  void resetView(const std::vector<std::string> &topics);
+  void resetView(const std::vector<std::string> &topics,
+                 ros::Time const &start_time = ros::TIME_MIN,
+                 ros::Time const &end_time = ros::TIME_MAX);
   void read(bool flatten, mxArray **msg);
   void read(bool flatten, mxArray **msg, mxArray **meta);
   void readAll(bool flatten, mxArray **msg);

@@ -400,8 +400,11 @@ ROSBagWrapper::ROSBagWrapper(const string &fname) : path_(fname), view_(NULL) {
   info_.setBag(&bag_);
 }
 
-void ROSBagWrapper::resetView(const vector<string> &topics) {
-  view_.reset(new rosbag::View(bag_, rosbag::TopicQuery(topics)));
+void ROSBagWrapper::resetView(const vector<string> &topics,
+                              const ros::Time &start_time,
+                              const ros::Time &end_time) {
+  view_.reset(new rosbag::View(bag_, rosbag::TopicQuery(topics), start_time,
+                               end_time));
   iter_ = view_->begin();
 }
 
@@ -465,7 +468,10 @@ void ROSBagWrapper::mex(int nlhs, mxArray *plhs[], int nrhs,
   string cmd = mexUnwrap<string>(prhs[0]);
   if (cmd == "resetView") {
     vector<string> topics = mexUnwrap<vector<string> >(prhs[1]);
-    resetView(topics);
+    ros::Time start_time, end_time;
+    start_time.fromSec(mexUnwrap<double>(prhs[2]));
+    end_time.fromSec(mexUnwrap<double>(prhs[3]));
+    resetView(topics, start_time, end_time);
   } else if (cmd == "read") {
     assertArgs(3, nrhs);
     if (!hasNext()) {

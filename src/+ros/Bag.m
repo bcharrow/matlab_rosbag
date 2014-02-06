@@ -31,13 +31,26 @@ classdef Bag
             obj.cleanup = onCleanup(@() rosbag_wrapper(uint64(0), 'destruct', h, false));
         end
 
-        function [obj] = resetView(obj, topics)
+        function [obj] = resetView(obj, topics, start_time, end_time)
         % Reset which topics to read messages from
         %
         % resetView(topics) jumps to the beginning of the bagfile and changes
         % the view to be topics.  topics can be a string or a cell array of
         % strings.
-            rosbag_wrapper(obj.handle, 'resetView', topics)
+        %
+        % resetView(topics, start_time, end_time) limits messages to be
+        % between start_time and end_time which should both be seconds since
+        % the epoch.  Use empty matrix to omit an argument;
+        % resetView('/tf', [], 100)) will return messages with timestamps
+        % between 0 and 100
+            if nargin < 3 || isempty(start_time)
+                start_time = 0.0;
+            end
+            if nargin < 4 || isempty(end_time)
+                end_time = double(intmax());
+            end
+            rosbag_wrapper(obj.handle, 'resetView', topics, ...
+                double(start_time), double(end_time))
         end
 
         function [hn] = hasNext(obj)
