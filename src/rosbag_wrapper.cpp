@@ -512,6 +512,9 @@ void ROSBagWrapper::mex(int nlhs, mxArray *plhs[], int nrhs,
     string regexp = mexUnwrap<string>(prhs[1]);
     vector<string> topics = info_.topics(regexp);
     plhs[0] = mexWrap(topics);
+  } else if (cmd == "times") {
+    plhs[0] = mexWrap(info_.getBeginTime());
+    plhs[1] = mexWrap(info_.getEndTime());
   } else {
     throw invalid_argument("ROSBagWrapper::mex() Unknown method");
   }

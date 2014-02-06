@@ -2,6 +2,8 @@ classdef Bag
     % Bag A class for reading data from ROS bags.
     properties
         path = '';
+        time_begin = -1;
+        time_end = -1;
     end
     properties(Hidden)
         handle = -1;
@@ -29,6 +31,9 @@ classdef Bag
             % generate an error if handle no longer exists
             % (e.g., due to clearing all envirnoment variables)
             obj.cleanup = onCleanup(@() rosbag_wrapper(uint64(0), 'destruct', h, false));
+            [beg, stop] = rosbag_wrapper(obj.handle, 'times');
+            obj.time_begin = beg.time;
+            obj.time_end = stop.time;
         end
 
         function [obj] = resetView(obj, topics, start_time, end_time)

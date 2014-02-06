@@ -121,6 +121,9 @@ public:
   // expression regexp.
   std::vector<std::string> topics(const std::string &regexp) const;
 
+  ros::Time getBeginTime() { return time_begin_; }
+  ros::Time getEndTime() { return time_end_; }
+
 private:
   struct TopicSummary {
     std::string topic;
@@ -138,6 +141,8 @@ private:
 
   const rosbag::Bag *bag_;
   boost::scoped_ptr<rosbag::View> view_;
+  // Times of beginning and end of bag
+  ros::Time time_begin_, time_end_;
 
   // Map from message type to raw message definition. The keys includes both
   // qualified names and unqualified names.

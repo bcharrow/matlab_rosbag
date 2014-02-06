@@ -602,6 +602,9 @@ void BagInfo::setBag(const rosbag::Bag *bag) {
   bag_ = bag;
   view_.reset(new rosbag::View(*bag_));
 
+  time_begin_ = view_->getBeginTime();
+  time_end_ = view_->getEndTime();
+
   msg_defs_.clear();
   type_maps_.clear();
 
