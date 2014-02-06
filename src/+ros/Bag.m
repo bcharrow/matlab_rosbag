@@ -1,8 +1,10 @@
 classdef Bag
     % Bag A class for reading data from ROS bags.
     properties
-        handle = -1;
         path = '';
+    end
+    properties(Hidden)
+        handle = -1;
         cleanup = @(x) x;
     end
 

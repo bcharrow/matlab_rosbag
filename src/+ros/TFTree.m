@@ -1,11 +1,14 @@
 classdef TFTree < ros.HiddenHandle
     %TFTree Dealing with TF information from a bag
     properties
-        handle = -1;
         bag = -1;
         topic = '';
         time_begin = -1;
         time_end = -1;
+    end
+
+    properties(Hidden=true)
+        handle = -1;
         cleanup = @(x) x;
     end
 
@@ -34,7 +37,7 @@ classdef TFTree < ros.HiddenHandle
         end
 
         function [obj] = build(obj, bag, start_time, end_time, tf_topic)
-        % Build the TF tree using a bag
+        % Create the TF tree using a bag
         %
         % build(bag) builds the tree using all messages in the bag on the
         % /tf topic.
