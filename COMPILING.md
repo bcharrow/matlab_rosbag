@@ -4,6 +4,54 @@ In order to compile rosbag_wrapper into a mex function so that it can be used on
 
 Even if you only want to compile code for your machine, Matlab comes with its own version of several libraries used by ROS -- most notably Boost -- and these versions may be incompatible with your system version.  So, you'll either need to statically compile boost, or compile and link against the version that Matlab uses.
 
+## Using ROS Hydro
+You need to install each of these things in order.  First, make the workspace:
+
+    mkdir ~/matbag_ws && cd ~/matbag_ws
+
+### [Boost](http://www.boost.org/users/download/)
+Download and unpack the latest version of Boost and go to that directory.
+
+    ./bootstrap.sh
+    ./b2 cxxflags='-fPIC' --build-dir=build --with-regex --with-system \
+      --with-filesystem --with-program_options --with-date_time --with-thread \
+      --with-signals link=static --prefix=$HOME/matbag_ws/install/ install
+
+To compile things with multiple processors, add the flag <tt>-jNUM_PROCESSORS</tt>
+
+### [bz2](http://www.bzip.org/downloads.html)
+
+Add <tt>-fPIC</tt> to the CFLAGS line in the Makefile.
+
+    make install PREFIX=$HOME/matbag_ws/install
+
+### ROS
+Install [rosinstall_generator](http://wiki.ros.org/rosinstall_generator#Installation) and [wstool](http://wiki.ros.org/wstool#Installation) for ROS.
+
+Generate install file and download necessary packages
+
+    rosinstall_generator --rosdistro hydro rosbag_storage tf2 --deps --wet-only --tar > matbag.rosinstall
+    wstool init -j8 src matbag.rosinstall
+    git clone -b hydro-devel https://github.com/bcharrow/matlab_rosbag.git src/matlab_rosbag
+    rosdep install --from-paths src --ignore-src --rosdistro hydro -y
+
+Next we need to compile.  Set ROSCONSOLE_SEVERITY_NONE, so we don't need to build log4cxx or any of its dependencies and use the downloaded version of boost and bz2 as opposed to the system's version.
+
+    ./src/catkin/bin/catkin_make_isolated --merge --install --install-space install --cmake-args \
+      -DBUILD_SHARED_LIBS=false \
+      -DCMAKE_CXX_FLAGS=-fPIC \
+      -DCMAKE_BUILD_TYPE=RelWithDebInfo \
+      -DBoost_NO_SYSTEM_PATHS=ON \
+      -DBOOST_ROOT=$(pwd)/install \
+      -DBZIP2_INCLUDE_DIR=~/matbag_ws/install/include/ \
+      -DBZIP2_LIBRARIES=~/matbag_ws/install/lib/libbz2a
+
+### matlab_rosbag
+Now use the <tt>mex_compile.sh</tt> build script
+
+    cd ~/matbag_ws/src/matlab_rosbag/src
+    bash mex_compile.sh
+
 ## Using ROS Groovy
 You need to install each of these things in order.  First, make the workspace:
 
