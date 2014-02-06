@@ -1,4 +1,4 @@
-classdef TFTree < handle
+classdef TFTree < ros.HiddenHandle
     %TFTree Dealing with TF information from a bag
     properties
         handle = -1;
@@ -18,7 +18,7 @@ classdef TFTree < handle
 
         function [] = disp(obj)
             fprintf('ros.TFTree()\n');
-            if isempty(obj.topic)
+            if isempty(obj) || isempty(obj.topic)
                 fprintf('  Not built yet\n\n');
             else
                 fprintf('  Built with ros.Bag(''%s'') on %s\n', ...
