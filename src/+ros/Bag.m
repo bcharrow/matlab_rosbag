@@ -85,7 +85,7 @@ classdef Bag
         %
         % [...] = readAll(topics) resets the view to 'topics' and then reads
         % all messages.
-            if nargin > 1
+            if nargin > 1 && ~isempty(topics)
                 obj.resetView(topics);
             end
 
