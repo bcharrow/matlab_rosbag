@@ -13,10 +13,13 @@ classdef TFTree < ros.HiddenHandle
     end
 
     methods
-        function [obj] = TFTree()
+        function [obj] = TFTree(varargin)
             obj.handle = rosbag_wrapper(uint64(0), 'construct', 'TFWrapper');
             h = obj.handle;
             obj.cleanup = onCleanup(@() rosbag_wrapper(uint64(0), 'destruct', h, false));
+            if ~isempty(varargin);
+                obj.build(varargin{:});
+            end
         end
 
         function [] = disp(obj)
