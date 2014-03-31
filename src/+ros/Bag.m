@@ -1,9 +1,9 @@
 classdef Bag
     % Bag A class for reading data from ROS bags.
     properties
-        path = '';
-        time_begin = -1;
-        time_end = -1;
+        path = ''; % Path to the bag
+        time_begin = -1; % Timestamp of first message in the bag (seconds since epoch)
+        time_end = -1; % Timestamp of last message in the bag (seconds since epoch)
     end
     properties(Hidden)
         handle = -1;
@@ -12,8 +12,10 @@ classdef Bag
 
     methods(Static)
         function [obj] = load(path)
-            % Construct a bag using path.  Only exists because it works
-            % with Matlab's autocomplete.
+            % Construct a bag using path.
+            %
+            % Function exists because it autocompletes paths when you hit
+            % tab.
             obj = ros.Bag(path);
         end
     end

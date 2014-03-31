@@ -1,10 +1,10 @@
 classdef TFTree < ros.HiddenHandle
     %TFTree Dealing with TF information from a bag
     properties
-        bag = -1;
-        topic = '';
-        time_begin = -1;
-        time_end = -1;
+        bag = -1;  % Bag associated with this tree.
+        topic = ''; % Topic tf messages are read from.
+        time_begin = -1; % Timestamp of first valid transformation (seconds since epoch)
+        time_end = -1; % Timestamp of last valid transformation (seconds since epoch)
     end
 
     properties(Hidden=true)
@@ -14,6 +14,9 @@ classdef TFTree < ros.HiddenHandle
 
     methods
         function [obj] = TFTree(varargin)
+            % Construct a tree and optionally build it.
+            %
+            % Accepts arguments to TFTree.build()
             obj.handle = rosbag_wrapper(uint64(0), 'construct', 'TFWrapper');
             h = obj.handle;
             obj.cleanup = onCleanup(@() rosbag_wrapper(uint64(0), 'destruct', h, false));
