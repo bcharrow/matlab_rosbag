@@ -845,10 +845,15 @@ string msg_definition(const ROSMessageFields *rmf, const ROSTypeMap &tm) {
 //================================== BagTF ==================================//
 
 void BagTF::build(const rosbag::Bag &bag, const ros::Time &begin,
-                  const ros::Time &end, const string topic) {
-  rosbag::View view(bag, rosbag::TopicQuery(topic), begin, end);
+                  const ros::Time &end, const string &tf_topic) {
+  string static_topic = tf_topic + "_static";
+  vector<string> topics;
+  topics.push_back(tf_topic);
+  topics.push_back(static_topic);
+  rosbag::View view(bag, rosbag::TopicQuery(topics), begin, end);
   begin_ = view.getBeginTime();
   end_ = view.getEndTime();
+
   // Cache all messages in the selected time interval
   ros::Duration cache_time = view.getEndTime() - view.getBeginTime();
   cache_time += ros::Duration(1.0);
@@ -864,11 +869,13 @@ void BagTF::build(const rosbag::Bag &bag, const ros::Time &begin,
       tf2_msg = m.instantiate<tf2_msgs::TFMessage>();
       transforms = &tf2_msg->transforms;
     } else {
-      throw invalid_argument(string("Unrecognized transform data type: ") + datatype);
+      throw runtime_error(string("Non-transform datatype (") + datatype +
+                          string(") on TF topic ") + m.getTopic());
     }
 
+    bool is_static = m.getTopic() == static_topic;
     for (size_t t = 0; t < transforms->size(); ++t) {
-      buffer_->setTransform(transforms->at(t), m.getCallerId());
+      buffer_->setTransform(transforms->at(t), m.getCallerId(), is_static);
     }
   }
 }

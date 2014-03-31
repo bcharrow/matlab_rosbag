@@ -165,7 +165,7 @@ public:
   // Read in all transforms from the bag.  Must be called before using any
   // other function.
   void build(const rosbag::Bag &bag, const ros::Time &begin_time,
-             const ros::Time &end_time, const std::string topic);
+             const ros::Time &end_time, const std::string &topic);
 
   void lookup(const std::string &target, const std::string &source,
               const std::vector<double> &times,
