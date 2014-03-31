@@ -2,6 +2,13 @@
 Changelog for package matlab_rosbag
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+0.4.0 (2014-03-31)
+------------------
+* Add ability to 1) filter messages by time and 2) access bag start/stop time.
+* New class, ros.TFTree, for working with stored TF messages
+* Autocomplete paths to bags using ros.Bag.load()
+* Update build to use Hydro
+
 0.3.0 (2013-06-09)
 ------------------
 * Add equivalents of 'rosbag info', 'rosmsg show', and 'rosmsg show --raw' to ros.Bag

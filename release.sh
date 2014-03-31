@@ -16,7 +16,7 @@ rm -fr $DEST && mkdir -p $DEST
 cp src/rosbag_wrapper.mex* $DEST/
 cp -r src/example $DEST/
 cp -r src/+ros $DEST/
-cp src/README $DEST/
+cp README.md $DEST/README
 cp LICENSE.txt $DEST/
 cp LICENSE-Willow.txt $DEST/
 cd build/ && rm -f $NAME.zip && zip -r $NAME.zip $NAME

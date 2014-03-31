@@ -1,6 +1,6 @@
 # Overview
 
-matlab_rosbag is a library for reading ROS bags in Matlab.  It uses the C++ ROS API and returns messages as structs.  It also lets get meta-data about the bag (i.e., topic info and message definitions similar to <tt>rosmsg show</tt> and <tt>rosbag info</tt>).  Because all of the work is done inside of a statically linked mex function, ROS does not need to be installed on a machine to use this library.
+matlab_rosbag is a library for reading ROS bags in Matlab.  It uses the C++ ROS API to read stored messages and lets get meta-data about the bag (e.g., topic info and message definitions similar to <tt>rosmsg show</tt> and <tt>rosbag info</tt>).  The library also contains methods for working with TF messages.  ROS does <emph>not</emp> not need to be installed on a machine to use this library.
 
 You can download the compiled code for Mac and Linux from sourceforge:
 
@@ -10,7 +10,7 @@ If you want to compile things yourself see [COMPILING.md](COMPILING.md).  WARNIN
 
 # Usage
 
-Download the library and add the base directory to your Matlab path (i.e., add the directory that contains <tt>+ros</tt> and <tt>rosbag_wrapper</tt>).  You should now be able to access <tt>ros.Bag</tt>, a Matlab class which can read ROS messages on topics from a bag and return them as structs.  Multiple messages are returned as cell arrays.  It's also possible to access some meta-data (e.g., topic, msg type).  To get an idea of how the code works go to the <tt>example</tt> directory and look at <tt>example.m</tt> and <tt>example.bag</tt>.
+Download the library and add the base directory to your Matlab path (i.e., add the directory that contains <tt>+ros</tt> and <tt>rosbag_wrapper</tt>).  You should now be able to access <tt>ros.Bag</tt>, a Matlab class which can read ROS messages on topics from a bag and return them as structs.  Multiple messages are returned as cell arrays.  To get an idea of how the code works go to the <tt>example</tt> directory and look at <tt>bag_example.m</tt> and <tt>tf_example.m</tt>
 
 The fields in the structs are guaranteed to be in the same order as they are in the message definition.  There are also some utilities for converting messages from structs to matrices.
 
