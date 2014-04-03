@@ -1,16 +1,3 @@
-.DS_Store
-*~
-*.pyc
-*.d
-*.o
-*.so
+build
 *.mexmaci64
 *.mexa64
-ROS_NOBUILD
-
-build
-bin
-lib
-
-msg_gen
-srv_gen
