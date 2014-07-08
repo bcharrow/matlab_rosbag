@@ -296,7 +296,7 @@ bool serialize_constant(const ROSType &type, const string &val,
 void ROSMessageFields::populate(const string &msg_def) {
   vector<vector<string> > lines = tokenize(msg_def);
   int start_ind = 0;
-  if (lines.at(0).size() == 1) {
+  if (lines.size() > 0 && lines.at(0).size() == 1) {
     type_.populate(lines.at(0).at(0));
     start_ind = 1;
   } else {
