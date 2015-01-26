@@ -7,6 +7,8 @@ fi
 
 mex -O rosbag_wrapper.cpp parser.cpp \
     ${INSTALL}/librosbag_storage.a \
+    ${INSTALL}/libroslz4.a \
+    ${INSTALL}/liblz4.a \
     ${INSTALL}/libcpp_common.a \
     ${INSTALL}/librostime.a \
     ${INSTALL}/libconsole_bridge.a \

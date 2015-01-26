@@ -16,5 +16,5 @@
   <run_depend>roscpp_serialization</run_depend>
   <run_depend>tf2</run_depend>
 
-  <test_depend>gtest</test_depend>
+  <test_depend>rosunit</test_depend>
 </package>
