@@ -36,9 +36,9 @@ NOTE:  On 14.04 using gcc 4.8.2 I had to apply the following patch to boost/cstd
 
 ## [bz2](http://www.bzip.org/downloads.html)
 
-Add <tt>-fPIC</tt> to the CFLAGS line in the Makefile.
+Download and unpack BZ2, go to that directory:
 
-    make install PREFIX=$MAT_WS/install
+    make install CFLAGS='-fPIC -Wall -Winline -O2 -g -D_FILE_OFFSET_BITS=64' PREFIX=$MAT_WS/install
 
 ## [Console Bridge](https://github.com/ros/console_bridge)
 
